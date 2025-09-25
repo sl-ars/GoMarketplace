@@ -1,0 +1,45 @@
+@startuml
+skin rose
+
+participant "Admin" as ADMIN
+participant "Manager" as MANAGER
+participant "Customer" as CUSTOMER
+participant "Marketplace API" as APP
+database "PostgreSQL" as DB
+participant "Stripe Payment Gateway" as STRIPE
+
+autonumber
+
+== Admin Adds a Product ==
+ADMIN -> APP: POST /api/v1/products (name, price, stock)
+APP -> DB: INSERT INTO products (name, price, stock)
+DB --> APP: Product ID returned
+APP --> ADMIN: 201 Created (Product ID)
+
+== Manager Updates Order Status ==
+MANAGER -> APP: PATCH /api/v1/orders/{id} (status=shipped)
+APP -> DB: UPDATE orders SET status='shipped' WHERE id={id}
+DB --> APP: Affected rows
+APP --> MANAGER: 200 OK (Order Updated)
+
+== Customer Purchases a Product ==
+CUSTOMER -> APP: POST /api/v1/cart (product_id, quantity)
+APP -> DB: INSERT INTO cart (customer_id, product_id, quantity)
+DB --> APP: Cart ID returned
+APP --> CUSTOMER: 201 Created (Cart Updated)
+
+CUSTOMER -> APP: POST /api/v1/checkout
+APP -> DB: Validate cart items & total amount
+DB --> APP: Order Summary
+
+CUSTOMER -> STRIPE: Create Payment Intent (total_amount)
+STRIPE --> CUSTOMER: Payment Link
+CUSTOMER -> STRIPE: Complete Payment
+STRIPE --> APP: Payment Success Webhook
+
+APP -> DB: INSERT INTO orders (customer_id, total_amount, status='paid')
+DB --> APP: Order ID returned
+APP --> CUSTOMER: 201 Order Confirmed
+
+@enduml
+
