@@ -11,6 +11,7 @@ import (
 type Config struct {
 	HTTPServer HTTPServerConfig `envPrefix:"HTTP_"`
 	DB         *DBConfig        `envPrefix:"DB_"`
+	JWTSecret  string           `env:"JWT_SECRET"`
 }
 
 type HTTPServerConfig struct {
