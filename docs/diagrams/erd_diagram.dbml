@@ -1,0 +1,107 @@
+// Users Table
+Table users {
+  id bigint [pk, increment]
+  username varchar(100) [not null, unique]
+  email varchar(255) [not null, unique]
+  password_hash text [not null]
+  role enum('admin', 'manager', 'customer') [default: 'customer']
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+}
+
+// Products Table
+Table products {
+  id bigint [pk, increment]
+  name varchar(255) [not null, unique]
+  description text
+  price decimal(10,2) [not null]
+  stock int [not null, default: 0]
+  is_available boolean [not null, default: true]
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+}
+
+// Orders Table
+Table orders {
+  id bigint [pk, increment]
+  user_id bigint [not null, ref: > users.id]
+  total_amount decimal(10,2) [not null]
+  status enum('pending', 'paid', 'shipped', 'delivered', 'cancelled') [default: 'pending']
+  payment_status enum('pending', 'failed', 'successful') [default: 'pending']
+  stripe_payment_id varchar(255) [unique] // Stores Stripe payment reference
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+}
+
+// Order Items Table
+Table order_items {
+  id bigint [pk, increment]
+  order_id bigint [not null, ref: > orders.id]
+  product_id bigint [not null, ref: > products.id]
+  quantity int [not null]
+  price decimal(10,2) [not null]
+  created_at timestamp [default: `now()`]
+}
+
+// Payments Table (For Stripe)
+Table payments {
+  id bigint [pk, increment]
+  order_id bigint [not null, ref: > orders.id]
+  user_id bigint [not null, ref: > users.id]
+  stripe_payment_id varchar(255) [not null, unique]
+  amount decimal(10,2) [not null]
+  currency varchar(10) [default: 'USD']
+  status enum('pending', 'failed', 'successful') [default: 'pending']
+  created_at timestamp [default: `now()`]
+}
+
+// Categories Table
+Table categories {
+  id bigint [pk, increment]
+  name varchar(100) [not null, unique]
+  description text
+  created_at timestamp [default: `now()`]
+}
+
+// Product-Categories Relationship (Many-to-Many)
+Table product_categories {
+  product_id bigint [not null, ref: > products.id]
+  category_id bigint [not null, ref: > categories.id]
+
+  Indexes {
+    (product_id, category_id) [pk]
+  }
+}
+
+// Cart Table
+Table cart {
+  id bigint [pk, increment]
+  user_id bigint [not null, ref: > users.id]
+  product_id bigint [not null, ref: > products.id]
+  quantity int [not null, default: 1]
+  created_at timestamp [default: `now()`]
+}
+
+// Reviews Table
+Table reviews {
+  id bigint [pk, increment]
+  user_id bigint [not null, ref: > users.id]
+  product_id bigint [not null, ref: > products.id]
+  rating int [not null]
+  review_text text
+  created_at timestamp [default: `now()`]
+}
+
+// Shipping Details
+Table shipping_details {
+  id bigint [pk, increment]
+  order_id bigint [not null, ref: > orders.id]
+  user_id bigint [not null, ref: > users.id]
+  address text [not null]
+  city varchar(100) [not null]
+  postal_code varchar(20) [not null]
+  country varchar(100) [not null]
+  tracking_number varchar(50) [unique]
+  status enum('pending', 'shipped', 'delivered') [default: 'pending']
+  created_at timestamp [default: `now()`]
+}
