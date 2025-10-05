@@ -1,99 +1,77 @@
 @startuml
+' ───────────────────────────────────────────────────────────
 skin rose
 autonumber
 
-actor Customer
-participant "Marketplace Frontend" as FRONT
-participant "Marketplace API Gateway" as API
-participant "Cart Service" as CART
-participant "Order Service" as ORDER
-participant "Payment Service" as PAYMENT
-participant "Notification Service" as NOTIFY
-participant "Delivery Service" as DELIVERY
-database "PostgreSQL" as DB
-participant "Stripe Connect" as STRIPE
-participant "Seller 1 (API or Dashboard)" as SELLER1
-participant "Seller 2 (API or Dashboard)" as SELLER2
+actor  Customer
+participant "Frontend SPA / Mobile" as FRONT
+participant "Marketplace App (Monolith)" as APP
+participant "Stripe" as STRIPE
+participant "Seller 1" as SELLER1
+participant "Seller 2" as SELLER2
+participant "Delivery Provider" as DELIVERY
 
-== Add products to cart ==
-Customer -> FRONT: Add product from Seller 1 and Seller 2
-FRONT -> API: POST /cart { product_id, quantity }
+'═══════════════════════════════════════════════════════════
+== 1. Add products to cart ==
+Customer  -> FRONT : Click “Add to Cart” (Prod-A, Prod-B)
+FRONT     -> APP   : POST /api/cart {items[…]}
 
-API -> CART: Add product to user cart
-CART -> DB: BEGIN TRANSACTION
-CART -> DB: SELECT * FROM cart_items WHERE customer_id=? AND product_id=?
-alt Product already in cart
-    DB -> DB: UPDATE cart_items SET quantity = quantity + ? WHERE product_id=?
-else New product
-    DB -> DB: INSERT INTO cart_items (customer_id, product_id, quantity)
-end
-CART -> DB: COMMIT
-CART --> API: Cart updated
-API --> FRONT: 201 Created + cart summary
+note right
+APP does:
+ • validate items / stock  
+ • upsert cart rows  
+ • calculate cart summary
+end note
 
-== Checkout ==
-Customer -> FRONT: Click "Checkout"
-FRONT -> API: POST /checkout
-API -> CART: Get cart grouped by seller
-CART -> DB: SELECT * FROM cart_items WHERE customer_id=...
-DB --> CART: Grouped items
-CART --> API: Grouped cart response
+APP       --> FRONT : 201 Created + cart summary
 
-API -> ORDER: Create sub-orders
-ORDER -> DB: BEGIN TRANSACTION
-DB -> DB: INSERT INTO orders (customer_id, total_amount, status='pending')
-DB -> DB: INSERT INTO sub_orders (order_id, seller_id, status='pending')
-DB -> DB: INSERT INTO order_items (sub_order_id, product_id, quantity, price)
-ORDER -> DB: COMMIT
-ORDER --> API: Order IDs
+'═══════════════════════════════════════════════════════════
+== 2. Checkout ==
+Customer  -> FRONT : Click “Checkout”
+FRONT     -> APP   : POST /api/checkout   (no body)
 
-== Payment ==
-API -> PAYMENT: Init Stripe split payment
-PAYMENT -> STRIPE: Create PaymentIntent (with seller splits)
-STRIPE --> PAYMENT: client_secret
-PAYMENT --> API: payment_link
-API --> FRONT: Render Stripe payment form
+APP :*group* Build order in-memory
+  APP -> APP : split cart items by seller  
+  APP -> APP : create Order + OrderItems (status =pending)
+end group
 
-== Payment success (Stripe webhook) ==
-Customer -> STRIPE: Complete payment
-STRIPE --> PAYMENT: webhook /payment_succeeded
-PAYMENT -> ORDER: Mark order as paid
-ORDER -> DB: BEGIN TRANSACTION
-DB -> DB: UPDATE orders SET status='paid'
-DB -> DB: UPDATE sub_orders SET status='paid'
-ORDER -> DB: COMMIT
+APP        -> STRIPE : Create Checkout Session (amount, split by seller†)
+STRIPE     --> APP   : checkout_session{ id, url }
 
-ORDER -> NOTIFY: Notify sellers
-NOTIFY -> SELLER1: POST /orders/new
-NOTIFY -> SELLER2: POST /orders/new
+APP        --> FRONT : 200 OK { payment_url }
 
-ORDER -> DELIVERY: Create deliveries
-DELIVERY -> DB: INSERT INTO deliveries (sub_order_id, status='new')
-DELIVERY --> ORDER: Tracking info
-ORDER --> API: Order confirmation
-API --> FRONT: Show order success
+'═══════════════════════════════════════════════════════════
+== 3. Customer pays on Stripe ==
+Customer  -> STRIPE : Pays with card
+STRIPE    -> APP    : **Webhook** payment_intent.succeeded
 
-== Order cancellation (partial) ==
-Customer -> FRONT: Cancel sub-order from Seller 1
-FRONT -> API: POST /orders/{sub_id}/cancel
-API -> ORDER: Cancel sub-order
-ORDER -> DB: BEGIN TRANSACTION
-DB -> DB: UPDATE sub_orders SET status='cancelled'
-ORDER -> PAYMENT: Refund sub-order
-PAYMENT -> STRIPE: POST /refunds (amount, sub_account=Seller1)
-STRIPE --> PAYMENT: Refund success
-ORDER -> DB: INSERT INTO refunds (sub_order_id, amount)
-ORDER -> DB: COMMIT
+APP :*group* Payment webhook handling
+  APP -> APP : mark Order & OrderItems as **paid**
+  APP -> SELLER1 : POST /api/orders/new    (notify)
+  APP -> SELLER2 : POST /api/orders/new
+  APP -> DELIVERY: Create delivery tasks
+end group
 
-ORDER -> NOTIFY: Notify Seller 1
-NOTIFY -> SELLER1: POST /orders/cancelled
-ORDER -> DELIVERY: Cancel delivery
-DELIVERY -> DB: UPDATE deliveries SET status='cancelled'
-DELIVERY --> ORDER: OK
-ORDER --> API: Cancel confirmed
-API --> FRONT: Partial refund confirmed
+APP        --> STRIPE : 200 OK (webhook ack)
 
-== Stripe Payout ==
-STRIPE -> SELLER2: Transfer funds for completed sub-order
+'═══════════════════════════════════════════════════════════
+== 4. Partial cancellation / refund ==
+Customer  -> FRONT : “Cancel Item #123” (seller 1)
+FRONT     -> APP   : POST /api/orders/items/123/cancel
+
+APP :*group* Validate & cancel
+  APP -> STRIPE : Create partial refund (item amount, seller 1)
+  STRIPE --> APP : refund succeeded
+  APP -> APP : mark OrderItem as **cancelled**
+  APP -> SELLER1 : POST /api/orders/cancelled
+  APP -> DELIVERY: cancel shipment (if not sent)
+end group
+
+APP        --> FRONT : 200 OK { refund_confirmed:true }
+
+'═══════════════════════════════════════════════════════════
+== 5. Stripe automatic payouts ==
+Stripe nightly process
+STRIPE --> SELLER2 : Transfer funds for paid items (payout)
 
 @enduml
