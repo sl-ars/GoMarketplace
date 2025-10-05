@@ -1,77 +1,52 @@
 @startuml
-' ───────────────────────────────────────────────────────────
+'──────────────────  STYLE  ──────────────────
 skin rose
 autonumber
 
-actor  Customer
-participant "Frontend SPA / Mobile" as FRONT
-participant "Marketplace App (Monolith)" as APP
-participant "Stripe" as STRIPE
-participant "Seller 1" as SELLER1
-participant "Seller 2" as SELLER2
-participant "Delivery Provider" as DELIVERY
+'──────────────────  PARTICIPANTS  ───────────
+actor Customer
+participant "Frontend SPA / Mobile"       as FRONT
+participant "Marketplace API" as API
+participant Stripe
+actor Seller
 
-'═══════════════════════════════════════════════════════════
-== 1. Add products to cart ==
-Customer  -> FRONT : Click “Add to Cart” (Prod-A, Prod-B)
-FRONT     -> APP   : POST /api/cart {items[…]}
-
-note right
-APP does:
- • validate items / stock  
- • upsert cart rows  
- • calculate cart summary
+'═════════════════════════════════════════════
+== 1. Add item to cart ==
+Customer -> FRONT : Click “Add to Cart”
+FRONT    -> API   : POST /api/cart/add\n⇢ CartHandler.AddItemToCart()
+note right of API
+calls\nCartService.AddItem → CartUseCase.AddItem → CartRepo.AddItem
 end note
+API --> FRONT : 200 OK  (item added)
 
-APP       --> FRONT : 201 Created + cart summary
+'═════════════════════════════════════════════
+== 2. Checkout (create order + Stripe session) ==
+Customer -> FRONT : Check out
+FRONT    -> API   : POST /api/orders/checkout\n⇢ OrderHandler.Checkout()
+API --> API : OrderService.Checkout()\n• OrderUsecase.Checkout()\n• PaymentService.CreateCheckoutSession()
+API --> FRONT : 200 OK  {payment_url}
 
-'═══════════════════════════════════════════════════════════
-== 2. Checkout ==
-Customer  -> FRONT : Click “Checkout”
-FRONT     -> APP   : POST /api/checkout   (no body)
+'═════════════════════════════════════════════
+== 3. Stripe payment webhook ==
+Stripe  -> API : POST /api/webhook/stripe\n⇢ StripeWebhookHandler.HandleWebhook()
+API  --> API : OrderService.UpdatePaymentStatusByIntent()
 
-APP :*group* Build order in-memory
-  APP -> APP : split cart items by seller  
-  APP -> APP : create Order + OrderItems (status =pending)
-end group
+'═════════════════════════════════════════════
+== 4. Seller processes item ==
+Seller -> FRONT : change status (e.g. “shipped”)
+FRONT  -> API   : PATCH /api/orders/items/{id}/status\n⇢ OrderHandler.UpdateOrderItemStatus()
+API --> FRONT : 200 OK
 
-APP        -> STRIPE : Create Checkout Session (amount, split by seller†)
-STRIPE     --> APP   : checkout_session{ id, url }
+'═════════════════════════════════════════════
+== 5. Customer requests refund ==
+Customer -> FRONT : request refund
+FRONT    -> API   : POST /api/refunds/{item_id}\n⇢ RefundHandler.Request()
+API --> FRONT : 201 Created {refund_id}
 
-APP        --> FRONT : 200 OK { payment_url }
-
-'═══════════════════════════════════════════════════════════
-== 3. Customer pays on Stripe ==
-Customer  -> STRIPE : Pays with card
-STRIPE    -> APP    : **Webhook** payment_intent.succeeded
-
-APP :*group* Payment webhook handling
-  APP -> APP : mark Order & OrderItems as **paid**
-  APP -> SELLER1 : POST /api/orders/new    (notify)
-  APP -> SELLER2 : POST /api/orders/new
-  APP -> DELIVERY: Create delivery tasks
-end group
-
-APP        --> STRIPE : 200 OK (webhook ack)
-
-'═══════════════════════════════════════════════════════════
-== 4. Partial cancellation / refund ==
-Customer  -> FRONT : “Cancel Item #123” (seller 1)
-FRONT     -> APP   : POST /api/orders/items/123/cancel
-
-APP :*group* Validate & cancel
-  APP -> STRIPE : Create partial refund (item amount, seller 1)
-  STRIPE --> APP : refund succeeded
-  APP -> APP : mark OrderItem as **cancelled**
-  APP -> SELLER1 : POST /api/orders/cancelled
-  APP -> DELIVERY: cancel shipment (if not sent)
-end group
-
-APP        --> FRONT : 200 OK { refund_confirmed:true }
-
-'═══════════════════════════════════════════════════════════
-== 5. Stripe automatic payouts ==
-Stripe nightly process
-STRIPE --> SELLER2 : Transfer funds for paid items (payout)
+'═════════════════════════════════════════════
+== 6. Seller approves / rejects refund ==
+Seller  -> FRONT : approve / reject
+FRONT   -> API   : PATCH /api/refunds/{refund_id}?action=approve|reject\n⇢ RefundHandler.Decide()
+API --> FRONT : 200 OK  (status updated)
 
 @enduml
