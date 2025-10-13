@@ -9,8 +9,11 @@ import (
 )
 
 type Config struct {
-	HTTPServer HTTPServerConfig `envPrefix:"HTTP_"`
-	DB         *DBConfig        `envPrefix:"DB_"`
+	HTTPServer          HTTPServerConfig `envPrefix:"HTTP_"`
+	DB                  *DBConfig        `envPrefix:"DB_"`
+	JWTSecret           string           `env:"JWT_SECRET"`
+	StripeSecretKey     string           `env:"STRIPE_SECRET_KEY"`
+	StripeWebhookSecret string           `env:"STRIPE_WEBHOOK_SECRET"`
 }
 
 type HTTPServerConfig struct {
