@@ -1,3 +1,7 @@
 configs/.env
 .DS_Store
 .idea
+
+# Swagger artifacts
+docs/swagger.json
+docs/swagger.yaml
