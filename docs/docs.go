@@ -15,7 +15,200 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/login": {
+        "/api/admin/products": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "products"
+                ],
+                "summary": "Create product",
+                "parameters": [
+                    {
+                        "description": "Product data",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.ProductCreateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/cart": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Cart"
+                ],
+                "summary": "Get cart items",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/cart/add": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Cart"
+                ],
+                "summary": "Add item to cart",
+                "parameters": [
+                    {
+                        "description": "Offer ID and Quantity",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.AddItemToCartRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/cart/clear": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Cart"
+                ],
+                "summary": "Clear cart",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/cart/remove/{offer_id}": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Cart"
+                ],
+                "summary": "Remove item from cart",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Offer ID",
+                        "name": "offer_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/login": {
             "post": {
                 "description": "Authenticates user and returns JWT token",
                 "consumes": [
@@ -35,7 +228,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/go-app-marketplace_pkg_reqresp.LoginUserRequest"
+                            "$ref": "#/definitions/reqresp.LoginUserRequest"
                         }
                     }
                 ],
@@ -43,25 +236,708 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/go-app-marketplace_pkg_reqresp.StandardResponse"
+                            "$ref": "#/definitions/reqresp.StandardResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/go-app-marketplace_pkg_reqresp.StandardResponse"
+                            "$ref": "#/definitions/reqresp.StandardResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/go-app-marketplace_pkg_reqresp.StandardResponse"
+                            "$ref": "#/definitions/reqresp.StandardResponse"
                         }
                     }
                 }
             }
         },
-        "/refresh": {
+        "/api/me": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "Get current user",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/offers": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Create a new offer for a product",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "offers"
+                ],
+                "summary": "Create offer",
+                "parameters": [
+                    {
+                        "description": "Offer data",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.OfferCreateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/reqresp.StandardResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/reqresp.OfferCreateResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Server error",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/offers/me": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get a list of all offers created by the current seller",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "offers"
+                ],
+                "summary": "List my offers",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/reqresp.StandardResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/reqresp.OfferResponse"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Server error",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/offers/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retrieve a specific offer by its ID",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "offers"
+                ],
+                "summary": "Get offer by ID",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Offer ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/reqresp.StandardResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/reqresp.OfferResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid offer ID",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Offer not found",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Server error",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update an existing offer",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "offers"
+                ],
+                "summary": "Update offer",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Offer ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Updated offer data",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.OfferUpdateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Offer updated successfully",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden - not the offer owner",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Offer not found",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Server error",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Delete an existing offer",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "offers"
+                ],
+                "summary": "Delete offer",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Offer ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Offer deleted successfully",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid offer ID",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden - not the offer owner",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Offer not found",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Server error",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/orders": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get a list of all user's orders",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "orders"
+                ],
+                "summary": "List user orders",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/reqresp.OrderResponse"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/orders/checkout": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Create a new order from cart items",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "orders"
+                ],
+                "summary": "Checkout cart",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.CheckoutResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/orders/checkout/{id}": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Create new payment session for an existing order",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "orders"
+                ],
+                "summary": "Checkout existing order",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Order ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.CheckoutResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/orders/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get detailed information about a specific order",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "orders"
+                ],
+                "summary": "Get order details",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Order ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.OrderResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/orders/{id}/cancel": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Cancel a specific order item",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "orders"
+                ],
+                "summary": "Cancel order item",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Order item ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/products": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "products"
+                ],
+                "summary": "List all products",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "Page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Number of items per page",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/products/{id}": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "products"
+                ],
+                "summary": "Get product with offers",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Product ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/refresh": {
             "post": {
                 "description": "Refreshes JWT access token using refresh_token cookie",
                 "produces": [
@@ -75,19 +951,131 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/go-app-marketplace_pkg_reqresp.StandardResponse"
+                            "$ref": "#/definitions/reqresp.StandardResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/go-app-marketplace_pkg_reqresp.StandardResponse"
+                            "$ref": "#/definitions/reqresp.StandardResponse"
                         }
                     }
                 }
             }
         },
-        "/register": {
+        "/api/refunds/{item_id}": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "refunds"
+                ],
+                "summary": "Request a refund for an order-item",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Order-item ID",
+                        "name": "item_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Refund reason",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.RefundRequestBody"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/refunds/{refund_id}/decide": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "refunds"
+                ],
+                "summary": "Approve or reject a refund",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Refund ID",
+                        "name": "refund_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Action: approve | reject",
+                        "name": "action",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/register": {
             "post": {
                 "description": "Registers a new user with username, email, and password",
                 "consumes": [
@@ -107,7 +1095,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/go-app-marketplace_pkg_reqresp.RegisterUserRequest"
+                            "$ref": "#/definitions/reqresp.RegisterUserRequest"
                         }
                     }
                 ],
@@ -115,25 +1103,131 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/go-app-marketplace_pkg_reqresp.StandardResponse"
+                            "$ref": "#/definitions/reqresp.StandardResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/go-app-marketplace_pkg_reqresp.StandardResponse"
+                            "$ref": "#/definitions/reqresp.StandardResponse"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "$ref": "#/definitions/go-app-marketplace_pkg_reqresp.StandardResponse"
+                            "$ref": "#/definitions/reqresp.StandardResponse"
                         }
                     }
                 }
             }
         },
-        "/verify": {
+        "/api/seller/orders": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "orders"
+                ],
+                "summary": "Seller: list own order-items",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/seller/orders/items/{id}/status": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Seller sets status to 'processing' or 'delivered'",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "orders"
+                ],
+                "summary": "Seller updates order-item status",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Order item ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "New status",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.UpdateOrderItemStatusRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/verify": {
             "get": {
                 "security": [
                     {
@@ -152,13 +1246,57 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/go-app-marketplace_pkg_reqresp.StandardResponse"
+                            "$ref": "#/definitions/reqresp.StandardResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/go-app-marketplace_pkg_reqresp.StandardResponse"
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/webhook/stripe": {
+            "post": {
+                "description": "Process Stripe webhook events for payment status updates",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "webhooks"
+                ],
+                "summary": "Handle Stripe webhook events",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Stripe webhook signature",
+                        "name": "Stripe-Signature",
+                        "in": "header",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Webhook received",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid webhook signature",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
                         }
                     }
                 }
@@ -166,18 +1304,52 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "go-app-marketplace_pkg_reqresp.ErrorInfo": {
+        "reqresp.AddItemToCartRequest": {
             "type": "object",
+            "required": [
+                "offer_id",
+                "quantity"
+            ],
             "properties": {
-                "code": {
+                "offer_id": {
                     "type": "integer"
                 },
-                "details": {
-                    "type": "string"
+                "quantity": {
+                    "type": "integer",
+                    "minimum": 1
                 }
             }
         },
-        "go-app-marketplace_pkg_reqresp.LoginUserRequest": {
+        "reqresp.CheckoutResponse": {
+            "type": "object",
+            "properties": {
+                "order_id": {
+                    "type": "integer"
+                },
+                "payment_url": {
+                    "type": "string"
+                },
+                "total_amount": {
+                    "type": "number"
+                }
+            }
+        },
+        "reqresp.ErrorInfo": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer",
+                    "x-order": "1",
+                    "example": 400
+                },
+                "details": {
+                    "type": "string",
+                    "x-order": "2",
+                    "example": "Invalid ID format: expected integer, got 'abc'"
+                }
+            }
+        },
+        "reqresp.LoginUserRequest": {
             "type": "object",
             "required": [
                 "email",
@@ -192,7 +1364,211 @@ const docTemplate = `{
                 }
             }
         },
-        "go-app-marketplace_pkg_reqresp.RegisterUserRequest": {
+        "reqresp.OfferCreateRequest": {
+            "type": "object",
+            "required": [
+                "price",
+                "product_id",
+                "stock"
+            ],
+            "properties": {
+                "product_id": {
+                    "description": "The ID of the product for which the offer is being created",
+                    "type": "integer",
+                    "x-order": "1",
+                    "example": 1
+                },
+                "price": {
+                    "description": "The price of the offer",
+                    "type": "number",
+                    "x-order": "2",
+                    "example": 29.99
+                },
+                "stock": {
+                    "description": "The available stock quantity",
+                    "type": "integer",
+                    "x-order": "3",
+                    "example": 100
+                },
+                "is_available": {
+                    "description": "Whether the offer is currently available for purchase",
+                    "type": "boolean",
+                    "x-order": "4",
+                    "example": true
+                }
+            }
+        },
+        "reqresp.OfferCreateResponse": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "description": "The generated ID of the created offer",
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
+        "reqresp.OfferResponse": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "description": "The unique identifier of the offer",
+                    "type": "integer",
+                    "x-order": "1",
+                    "example": 1
+                },
+                "product_id": {
+                    "description": "The product ID this offer is for",
+                    "type": "integer",
+                    "x-order": "2",
+                    "example": 42
+                },
+                "seller_id": {
+                    "description": "The ID of the seller who created the offer",
+                    "type": "integer",
+                    "x-order": "3",
+                    "example": 5
+                },
+                "price": {
+                    "description": "The price of the product in this offer",
+                    "type": "number",
+                    "x-order": "4",
+                    "example": 29.99
+                },
+                "stock": {
+                    "description": "The available stock quantity",
+                    "type": "integer",
+                    "x-order": "5",
+                    "example": 100
+                },
+                "is_available": {
+                    "description": "Whether the offer is currently available for purchase",
+                    "type": "boolean",
+                    "x-order": "6",
+                    "example": true
+                },
+                "created_at": {
+                    "description": "The timestamp when the offer was created, in RFC3339 format",
+                    "type": "string",
+                    "x-order": "7",
+                    "example": "2023-04-15T14:32:20Z"
+                },
+                "updated_at": {
+                    "description": "The timestamp when the offer was last updated, in RFC3339 format",
+                    "type": "string",
+                    "x-order": "8",
+                    "example": "2023-04-16T09:12:55Z"
+                }
+            }
+        },
+        "reqresp.OfferUpdateRequest": {
+            "type": "object",
+            "required": [
+                "price",
+                "stock"
+            ],
+            "properties": {
+                "price": {
+                    "description": "The updated price of the offer",
+                    "type": "number",
+                    "x-order": "1",
+                    "example": 39.99
+                },
+                "stock": {
+                    "description": "The updated stock quantity",
+                    "type": "integer",
+                    "x-order": "2",
+                    "example": 50
+                },
+                "is_available": {
+                    "description": "Whether the offer should be available for purchase",
+                    "type": "boolean",
+                    "x-order": "3",
+                    "example": true
+                }
+            }
+        },
+        "reqresp.OrderItemResponse": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer"
+                },
+                "offer_id": {
+                    "type": "integer"
+                },
+                "product_id": {
+                    "type": "integer"
+                },
+                "quantity": {
+                    "type": "integer"
+                },
+                "seller_id": {
+                    "type": "integer"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "unit_price": {
+                    "type": "number"
+                }
+            }
+        },
+        "reqresp.OrderResponse": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/reqresp.OrderItemResponse"
+                    }
+                },
+                "payment_status": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "total_amount": {
+                    "type": "number"
+                },
+                "user_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "reqresp.ProductCreateRequest": {
+            "type": "object",
+            "required": [
+                "name"
+            ],
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "reqresp.RefundRequestBody": {
+            "type": "object",
+            "required": [
+                "reason"
+            ],
+            "properties": {
+                "reason": {
+                    "type": "string"
+                }
+            }
+        },
+        "reqresp.RegisterUserRequest": {
             "type": "object",
             "required": [
                 "email",
@@ -213,32 +1589,66 @@ const docTemplate = `{
                 }
             }
         },
-        "go-app-marketplace_pkg_reqresp.StandardResponse": {
+        "reqresp.StandardResponse": {
             "type": "object",
             "properties": {
-                "data": {},
-                "error": {
-                    "$ref": "#/definitions/go-app-marketplace_pkg_reqresp.ErrorInfo"
+                "success": {
+                    "type": "boolean",
+                    "x-order": "1",
+                    "example": true
                 },
                 "message": {
-                    "type": "string"
+                    "type": "string",
+                    "x-order": "2",
+                    "example": "Operation completed successfully"
                 },
-                "success": {
-                    "type": "boolean"
+                "data": {
+                    "x-order": "3"
+                },
+                "error": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/reqresp.ErrorInfo"
+                        }
+                    ],
+                    "x-order": "4"
                 }
             }
+        },
+        "reqresp.UpdateOrderItemStatusRequest": {
+            "type": "object",
+            "required": [
+                "status"
+            ],
+            "properties": {
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "processing",
+                        "delivered"
+                    ]
+                }
+            }
+        }
+    },
+    "securityDefinitions": {
+        "BearerAuth": {
+            "description": "Type \"Bearer\" followed by a space and JWT token.",
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
         }
     }
 }`
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "0.1",
-	Host:             "localhost:8080",
+	Version:          "1.0",
+	Host:             "",
 	BasePath:         "/",
 	Schemes:          []string{},
-	Title:            "Online Marketplace",
-	Description:      "This is the API documentation for the online marketplace.",
+	Title:            "Go Marketplace API",
+	Description:      "API documentation for Marketplace project",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",
