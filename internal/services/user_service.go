@@ -53,7 +53,7 @@ func (s *UserService) Login(ctx context.Context, req *reqresp.LoginUserRequest) 
 		return nil, err
 	}
 
-	accessToken, err := auth.GenerateAccessToken(user.ID, s.jwtKey)
+	accessToken, err := auth.GenerateAccessToken(user.ID, string(user.Role), s.jwtKey)
 	if err != nil {
 		return nil, err
 	}
@@ -69,7 +69,7 @@ func (s *UserService) Login(ctx context.Context, req *reqresp.LoginUserRequest) 
 	}, nil
 }
 
-func (s *UserService) Refresh(refreshToken string) (string, error) {
+func (s *UserService) Refresh(ctx context.Context, refreshToken string) (string, error) {
 	token, err := auth.ParseToken(refreshToken, s.jwtKey)
 	if err != nil || !token.Valid {
 		return "", err
@@ -84,15 +84,14 @@ func (s *UserService) Refresh(refreshToken string) (string, error) {
 	if !ok {
 		return "", err
 	}
-
 	userID := int64(userIDFloat)
 
-	newAccessToken, err := auth.GenerateAccessToken(userID, s.jwtKey)
+	user, err := s.usecase.GetByID(ctx, userID)
 	if err != nil {
 		return "", err
 	}
 
-	return newAccessToken, nil
+	return auth.GenerateAccessToken(user.ID, string(user.Role), s.jwtKey)
 }
 
 func (s *UserService) Verify(tokenStr string) error {
@@ -101,4 +100,8 @@ func (s *UserService) Verify(tokenStr string) error {
 		return err
 	}
 	return nil
+}
+
+func (s *UserService) GetCurrentUser(ctx context.Context, userID int64) (*domain.User, error) {
+	return s.usecase.GetUserByID(ctx, userID)
 }

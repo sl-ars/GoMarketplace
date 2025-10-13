@@ -21,7 +21,7 @@ var validate = validator.New()
 // @Success 201 {object} reqresp.StandardResponse
 // @Failure 400 {object} reqresp.StandardResponse
 // @Failure 409 {object} reqresp.StandardResponse
-// @Router /register [post]
+// @Router /api/register [post]
 func RegisterHandler(service *services.UserService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req reqresp.RegisterUserRequest
@@ -39,7 +39,7 @@ func RegisterHandler(service *services.UserService) http.HandlerFunc {
 		res, err := service.Register(r.Context(), &req)
 		if err != nil {
 			status := http.StatusInternalServerError
-			if strings.Contains(err.Error(), "email already exists") {
+			if strings.Contains(err.Error(), "email already exists") || strings.Contains(err.Error(), "username already exists") {
 				status = http.StatusConflict
 			}
 			httpx.WriteError(w, status, "Registration failed", err.Error())
@@ -59,7 +59,7 @@ func RegisterHandler(service *services.UserService) http.HandlerFunc {
 // @Success 200 {object} reqresp.StandardResponse
 // @Failure 400 {object} reqresp.StandardResponse
 // @Failure 401 {object} reqresp.StandardResponse
-// @Router /login [post]
+// @Router /api/login [post]
 func LoginHandler(service *services.UserService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req reqresp.LoginUserRequest
@@ -74,13 +74,13 @@ func LoginHandler(service *services.UserService) http.HandlerFunc {
 			return
 		}
 
-		userResp, err := service.Login(r.Context(), &req)
+		resp, err := service.Login(r.Context(), &req)
 		if err != nil {
 			httpx.WriteError(w, http.StatusUnauthorized, "Login failed", err.Error())
 			return
 		}
 
-		httpx.WriteSuccess(w, http.StatusOK, "Login successful", userResp)
+		httpx.WriteSuccess(w, http.StatusOK, "Login successful", resp)
 	}
 }
 
@@ -90,7 +90,7 @@ func LoginHandler(service *services.UserService) http.HandlerFunc {
 // @Produce json
 // @Success 200 {object} reqresp.StandardResponse
 // @Failure 401 {object} reqresp.StandardResponse
-// @Router /refresh [post]
+// @Router /api/refresh [post]
 func RefreshHandler(service *services.UserService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		cookie, err := r.Cookie("refresh_token")
@@ -99,7 +99,7 @@ func RefreshHandler(service *services.UserService) http.HandlerFunc {
 			return
 		}
 
-		token, err := service.Refresh(cookie.Value)
+		token, err := service.Refresh(r.Context(), cookie.Value)
 		if err != nil {
 			httpx.WriteError(w, http.StatusUnauthorized, "Unauthorized", "Invalid or expired refresh token")
 			return
@@ -118,7 +118,7 @@ func RefreshHandler(service *services.UserService) http.HandlerFunc {
 // @Produce json
 // @Success 200 {object} reqresp.StandardResponse
 // @Failure 401 {object} reqresp.StandardResponse
-// @Router /verify [get]
+// @Router /api/verify [get]
 func VerifyHandler(service *services.UserService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		authHeader := r.Header.Get("Authorization")
@@ -135,5 +135,42 @@ func VerifyHandler(service *services.UserService) http.HandlerFunc {
 		}
 
 		httpx.WriteSuccess(w, http.StatusOK, "Token is valid", nil)
+	}
+}
+
+// @Summary Get current user
+// @Tags users
+// @Security BearerAuth
+// @Produce json
+// @Success 200 {object} reqresp.StandardResponse
+// @Failure 401 {object} reqresp.StandardResponse
+// @Failure 404 {object} reqresp.StandardResponse
+// @Router /api/me [get]
+func GetCurrentUserHandler(service *services.UserService) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID, ok := r.Context().Value("user_id").(int64)
+		if !ok {
+			httpx.WriteError(w, http.StatusUnauthorized, "Unauthorized", "User ID not found in context")
+			return
+		}
+
+		user, err := service.GetCurrentUser(r.Context(), userID)
+		if err != nil {
+			if err.Error() == "user not found" {
+				httpx.WriteError(w, http.StatusNotFound, "Not Found", "User not found")
+				return
+			}
+			httpx.WriteError(w, http.StatusInternalServerError, "Internal Server Error", err.Error())
+			return
+		}
+
+		response := reqresp.UserResponse{
+			ID:       user.ID,
+			Username: user.Username,
+			Email:    user.Email,
+			Role:     string(user.Role),
+		}
+
+		httpx.WriteSuccess(w, http.StatusOK, "User retrieved successfully", response)
 	}
 }

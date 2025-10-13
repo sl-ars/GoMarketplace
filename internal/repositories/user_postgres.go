@@ -20,6 +20,12 @@ func (r *UserPostgresRepo) IsEmailTaken(ctx context.Context, email string) (bool
 	return exists, err
 }
 
+func (r *UserPostgresRepo) IsUsernameTaken(ctx context.Context, username string) (bool, error) {
+	var exists bool
+	err := r.db.GetContext(ctx, &exists, `SELECT EXISTS(SELECT 1 FROM users WHERE username=$1)`, username)
+	return exists, err
+}
+
 func (r *UserPostgresRepo) CreateUser(ctx context.Context, user *domain.User) (int64, error) {
 	var id int64
 	err := r.db.GetContext(ctx, &id,
@@ -32,6 +38,25 @@ func (r *UserPostgresRepo) CreateUser(ctx context.Context, user *domain.User) (i
 func (r *UserPostgresRepo) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
 	var user domain.User
 	err := r.db.GetContext(ctx, &user, `SELECT * FROM users WHERE email = $1`, email)
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+func (r *UserPostgresRepo) GetByID(ctx context.Context, id int64) (*domain.User, error) {
+	var user domain.User
+	err := r.db.GetContext(ctx, &user, `SELECT id, username, email, password_hash, role, created_at FROM users WHERE id = $1`, id)
+	return &user, err
+}
+
+func (r *UserPostgresRepo) GetUserByID(ctx context.Context, userID int64) (*domain.User, error) {
+	var user domain.User
+	err := r.db.GetContext(ctx, &user, `
+		SELECT id, username, email, role, created_at
+		FROM users
+		WHERE id = $1
+	`, userID)
 	if err != nil {
 		return nil, err
 	}
