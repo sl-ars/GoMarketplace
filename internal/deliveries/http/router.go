@@ -4,25 +4,65 @@ import (
 	"github.com/gorilla/mux"
 	httpSwagger "github.com/swaggo/http-swagger"
 	_ "go-app-marketplace/docs"
+	"go-app-marketplace/internal/deliveries/http/cart"
+	"go-app-marketplace/internal/deliveries/http/offer"
+	"go-app-marketplace/internal/deliveries/http/order"
+	"go-app-marketplace/internal/deliveries/http/product"
+	"go-app-marketplace/internal/deliveries/http/refund"
 	"go-app-marketplace/internal/deliveries/http/user"
+	"go-app-marketplace/internal/deliveries/http/webhook"
 	"go-app-marketplace/internal/services"
 	"net/http"
 )
 
 type Services struct {
-	User *services.UserService
+	User    *services.UserService
+	Cart    *services.CartService
+	Product *services.ProductService
+	Offer   *services.OfferService
+	Order   *services.OrderService
+	Payment *services.PaymentService
+	Refund  *services.RefundService
+	JWTKey  []byte
 }
 
 func NewRouter(s *Services) http.Handler {
 	r := mux.NewRouter()
 
+	// API routes
+	api := r.PathPrefix("/api").Subrouter()
+
 	// Healthcheck
-	r.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+	api.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("OK"))
 	}).Methods("GET")
 
 	// User routes
-	user.RegisterUserRoutes(r.PathPrefix("/").Subrouter(), s.User)
+	user.RegisterUserRoutes(api.PathPrefix("/").Subrouter(), s.User, s.JWTKey)
+
+	// Cart routes
+	cartHandler := cart.NewCartHandler(s.Cart)
+	cart.RegisterCartRoutes(api.PathPrefix("/").Subrouter(), cartHandler, s.JWTKey)
+
+	// Product routes
+	productHandler := product.NewProductHandler(s.Product, s.Offer)
+	product.RegisterProductRoutes(api.PathPrefix("/").Subrouter(), productHandler, s.JWTKey)
+
+	// Offer routes
+	offerHandler := offer.NewOfferHandler(s.Offer)
+	offer.RegisterOfferRoutes(api.PathPrefix("/").Subrouter(), offerHandler, s.JWTKey)
+
+	// Order routes
+	orderHandler := order.NewOrderHandler(s.Order)
+	order.RegisterOrderRoutes(api.PathPrefix("/").Subrouter(), orderHandler, s.JWTKey)
+
+	// Refund routes
+	refundHandler := refund.NewHandler(s.Refund)
+	refund.Register(api.PathPrefix("/").Subrouter(), refundHandler, s.JWTKey)
+
+	// Stripe Webhook Handler
+	stripeWebhookHandler := webhook.NewStripeWebhookHandler(s.Order, s.Payment.GetWebhookSecret())
+	r.HandleFunc("/api/webhook/stripe", stripeWebhookHandler.HandleWebhook).Methods("POST")
 
 	// Swagger
 	r.PathPrefix("/swagger/").Handler(httpSwagger.WrapHandler)
