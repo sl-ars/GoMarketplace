@@ -16,4 +16,10 @@
 - Unified JSON responses (success/error)
 - User login/registration
 
+
+## Generate swagger
+```bash
+swag init -g cmd/app/main.go -o docs
+```
+
 ---
