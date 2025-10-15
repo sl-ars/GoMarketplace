@@ -6,11 +6,15 @@ import (
 	"go-app-marketplace/internal/app"
 )
 
-// @title Online Marketplace
-// @version 0.1
-// @description This is the API documentation for the online marketplace.
-// @host localhost:8080
+// @title Go Marketplace API
+// @version 1.0
+// @description API documentation for Marketplace project
 // @BasePath /
+
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+// @description Type "Bearer" followed by a space and JWT token.
 func main() {
 	configFile := flag.String("config", "./configs/.env", "Path to configuration file")
 	flag.Parse()
