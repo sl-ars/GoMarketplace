@@ -25,19 +25,47 @@ func Run(configFiles ...string) {
 	}
 	defer conns.Close()
 
-	// DB migrations
-	//if err := connections.RunMigrations(cfg.DB.DSN); err != nil {
-	//	log.Fatalf("Failed to run migrations: %v", err)
-	//}
-
 	// Dependency injection
 	userRepo := repositories.NewUserPostgresRepo(conns.DB)
 	userUC := usecases.NewUserUseCase(userRepo)
 	userService := services.NewUserService(userUC, cfg.JWTSecret)
 
+	productRepo := repositories.NewProductRepository(conns.DB)
+	productUC := usecases.NewProductUseCase(productRepo)
+	productService := services.NewProductService(productUC)
+
+	offerRepo := repositories.NewOfferRepository(conns.DB)
+	offerUC := usecases.NewOfferUseCase(offerRepo)
+	offerService := services.NewOfferService(offerUC)
+
+	cartRepo := repositories.NewCartRepository(conns.DB)
+	cartUC := usecases.NewCartUseCase(cartRepo, offerRepo)
+	cartService := services.NewCartService(cartUC)
+
+	orderRepo := repositories.NewOrderRepository(conns.DB)
+	orderUC := usecases.NewOrderUsecase(orderRepo, cartRepo, offerRepo)
+	orderService := services.NewOrderService(orderUC)
+
+	// Stripe Payment Service
+	paymentService := services.NewPaymentService(cfg.StripeSecretKey, cfg.StripeWebhookSecret)
+
+	// Set the payment service on the order service to avoid circular dependency
+	orderService.SetPaymentService(paymentService)
+
+	// refund
+	refundRepo := repositories.NewRefundRepository(conns.DB)
+	refundUC := usecases.NewRefundUsecase(refundRepo, orderRepo)
+	refundService := services.NewRefundService(refundUC)
 	// Wrap services
 	svc := &http.Services{
-		User: userService,
+		User:    userService,
+		Cart:    cartService,
+		Product: productService,
+		Offer:   offerService,
+		Order:   orderService,
+		Payment: paymentService,
+		Refund:  refundService,
+		JWTKey:  []byte(cfg.JWTSecret),
 	}
 
 	// Router
