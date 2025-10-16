@@ -6,6 +6,7 @@ import (
 
 	"github.com/caarlos0/env/v6"
 	"github.com/joho/godotenv"
+	"go-app-marketplace/pkg/logger"
 )
 
 type Config struct {
@@ -14,6 +15,7 @@ type Config struct {
 	JWTSecret           string           `env:"JWT_SECRET"`
 	StripeSecretKey     string           `env:"STRIPE_SECRET_KEY"`
 	StripeWebhookSecret string           `env:"STRIPE_WEBHOOK_SECRET"`
+	Logger              logger.Config    `envPrefix:"LOG_"`
 }
 
 type HTTPServerConfig struct {

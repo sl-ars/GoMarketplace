@@ -11,7 +11,9 @@ import (
 	"go-app-marketplace/internal/deliveries/http/refund"
 	"go-app-marketplace/internal/deliveries/http/user"
 	"go-app-marketplace/internal/deliveries/http/webhook"
+	"go-app-marketplace/internal/middleware"
 	"go-app-marketplace/internal/services"
+	"go-app-marketplace/pkg/logger"
 	"net/http"
 )
 
@@ -24,10 +26,14 @@ type Services struct {
 	Payment *services.PaymentService
 	Refund  *services.RefundService
 	JWTKey  []byte
+	Logger  *logger.Logger
 }
 
 func NewRouter(s *Services) http.Handler {
 	r := mux.NewRouter()
+
+	// Добавляем middleware логирования
+	r.Use(middleware.LoggingMiddleware(s.Logger))
 
 	// API routes
 	api := r.PathPrefix("/api").Subrouter()
@@ -38,7 +44,7 @@ func NewRouter(s *Services) http.Handler {
 	}).Methods("GET")
 
 	// User routes
-	user.RegisterUserRoutes(api.PathPrefix("/").Subrouter(), s.User, s.JWTKey)
+	user.RegisterUserRoutes(api.PathPrefix("/").Subrouter(), s.User, s.JWTKey, s.Logger)
 
 	// Cart routes
 	cartHandler := cart.NewCartHandler(s.Cart)

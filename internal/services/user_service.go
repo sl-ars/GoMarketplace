@@ -7,24 +7,33 @@ import (
 	"go-app-marketplace/pkg/auth"
 	"go-app-marketplace/pkg/domain"
 	"go-app-marketplace/pkg/hash"
+	"go-app-marketplace/pkg/logger"
 	"go-app-marketplace/pkg/reqresp"
 )
 
 type UserService struct {
 	usecase *usecases.UserUseCase
 	jwtKey  []byte
+	logger  *logger.Logger
 }
 
-func NewUserService(u *usecases.UserUseCase, jwtSecret string) *UserService {
+func NewUserService(u *usecases.UserUseCase, jwtSecret string, log *logger.Logger) *UserService {
 	return &UserService{
 		usecase: u,
 		jwtKey:  []byte(jwtSecret),
+		logger:  log,
 	}
 }
 
 func (s *UserService) Register(ctx context.Context, req *reqresp.RegisterUserRequest) (*reqresp.RegisterUserResponse, error) {
+	s.logger.WithFields(logger.Fields{
+		"email":    req.Email,
+		"username": req.Username,
+	}).WithOperation("user_register").Info("Processing user registration")
+
 	hashed, err := hash.HashPassword(req.Password)
 	if err != nil {
+		s.logger.WithError(err).WithOperation("user_register").Error("Failed to hash password")
 		return nil, err
 	}
 
@@ -37,8 +46,18 @@ func (s *UserService) Register(ctx context.Context, req *reqresp.RegisterUserReq
 
 	id, err := s.usecase.Register(ctx, user)
 	if err != nil {
+		s.logger.WithError(err).WithFields(logger.Fields{
+			"email":    req.Email,
+			"username": req.Username,
+		}).WithOperation("user_register").Error("Failed to register user in database")
 		return nil, err
 	}
+
+	s.logger.WithFields(logger.Fields{
+		"userID":   id,
+		"email":    req.Email,
+		"username": req.Username,
+	}).WithOperation("user_register").Info("User registered successfully in database")
 
 	return &reqresp.RegisterUserResponse{
 		ID:       id,
@@ -48,20 +67,27 @@ func (s *UserService) Register(ctx context.Context, req *reqresp.RegisterUserReq
 }
 
 func (s *UserService) Login(ctx context.Context, req *reqresp.LoginUserRequest) (*reqresp.LoginUserResponse, error) {
+	s.logger.WithField("email", req.Email).WithOperation("user_login").Info("Processing user login")
+
 	user, err := s.usecase.Login(ctx, req.Email, req.Password)
 	if err != nil {
+		s.logger.WithError(err).WithField("email", req.Email).WithOperation("user_login").Warn("User login failed - invalid credentials")
 		return nil, err
 	}
 
 	accessToken, err := auth.GenerateAccessToken(user.ID, string(user.Role), s.jwtKey)
 	if err != nil {
+		s.logger.WithError(err).WithUser(user.ID).WithOperation("user_login").Error("Failed to generate access token")
 		return nil, err
 	}
 
 	refreshToken, err := auth.GenerateRefreshToken(user.ID, s.jwtKey)
 	if err != nil {
+		s.logger.WithError(err).WithUser(user.ID).WithOperation("user_login").Error("Failed to generate refresh token")
 		return nil, err
 	}
+
+	s.logger.WithUser(user.ID).WithOperation("user_login").Info("User login successful - tokens generated")
 
 	return &reqresp.LoginUserResponse{
 		AccessToken:  accessToken,

@@ -4,14 +4,16 @@ import (
 	"context"
 	"github.com/jmoiron/sqlx"
 	"go-app-marketplace/pkg/domain"
+	"go-app-marketplace/pkg/logger"
 )
 
 type UserPostgresRepo struct {
-	db *sqlx.DB
+	db     *sqlx.DB
+	logger *logger.Logger
 }
 
-func NewUserPostgresRepo(db *sqlx.DB) *UserPostgresRepo {
-	return &UserPostgresRepo{db: db}
+func NewUserPostgresRepo(db *sqlx.DB, log *logger.Logger) *UserPostgresRepo {
+	return &UserPostgresRepo{db: db, logger: log}
 }
 
 func (r *UserPostgresRepo) IsEmailTaken(ctx context.Context, email string) (bool, error) {
@@ -27,11 +29,32 @@ func (r *UserPostgresRepo) IsUsernameTaken(ctx context.Context, username string)
 }
 
 func (r *UserPostgresRepo) CreateUser(ctx context.Context, user *domain.User) (int64, error) {
+	r.logger.WithFields(logger.Fields{
+		"email":    user.Email,
+		"username": user.Username,
+		"role":     user.Role,
+	}).WithOperation("create_user").Info("Creating user in database")
+
 	var id int64
 	err := r.db.GetContext(ctx, &id,
 		`INSERT INTO users (username, email, password_hash, role, created_at)
          VALUES ($1, $2, $3, $4, NOW()) RETURNING id`,
 		user.Username, user.Email, user.Password, user.Role)
+	
+	if err != nil {
+		r.logger.WithError(err).WithFields(logger.Fields{
+			"email":    user.Email,
+			"username": user.Username,
+		}).WithOperation("create_user").Error("Failed to create user in database")
+		return 0, err
+	}
+
+	r.logger.WithFields(logger.Fields{
+		"userID":   id,
+		"email":    user.Email,
+		"username": user.Username,
+	}).WithOperation("create_user").Info("User created successfully in database")
+
 	return id, err
 }
 
