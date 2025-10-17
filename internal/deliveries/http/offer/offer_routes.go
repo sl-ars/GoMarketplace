@@ -4,11 +4,12 @@ import (
 	"github.com/gorilla/mux"
 	"go-app-marketplace/internal/middleware"
 	"go-app-marketplace/pkg/domain"
+	"go-app-marketplace/pkg/logger"
 )
 
-func RegisterOfferRoutes(r *mux.Router, handler *OfferHandler, jwtSecret []byte) {
+func RegisterOfferRoutes(r *mux.Router, handler *OfferHandler, jwtSecret []byte, log *logger.Logger) {
 	offerRouter := r.PathPrefix("/offers").Subrouter()
-	offerRouter.Use(middleware.AuthMiddleware(jwtSecret))
+	offerRouter.Use(middleware.AuthMiddleware(jwtSecret, log))
 	offerRouter.Use(middleware.RequireRoles(domain.UserRoleSeller))
 
 	offerRouter.HandleFunc("", handler.CreateOffer).Methods("POST")

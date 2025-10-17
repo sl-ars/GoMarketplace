@@ -3,6 +3,7 @@ package user
 import (
 	"encoding/json"
 	"github.com/go-playground/validator/v10"
+	"github.com/sirupsen/logrus"
 	"go-app-marketplace/internal/services"
 	"go-app-marketplace/pkg/httpx"
 	"go-app-marketplace/pkg/logger"
@@ -30,16 +31,17 @@ func RegisterHandler(service *services.UserService, log *logger.Logger) http.Han
 		var req reqresp.RegisterUserRequest
 
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			log.WithError(err).WithOperation("user_register").Error("Failed to decode registration request")
+			log.WithError(err).WithField("operation", "user_register").Error("Failed to decode registration request")
 			httpx.WriteError(w, http.StatusBadRequest, "Invalid request", "Malformed JSON")
 			return
 		}
 
 		if err := validate.Struct(&req); err != nil {
-			log.WithError(err).WithFields(logger.Fields{
-				"email":    req.Email,
-				"username": req.Username,
-			}).WithOperation("user_register").Warn("Validation failed for registration request")
+			log.WithError(err).WithFields(logrus.Fields{
+				"email":      req.Email,
+				"username":   req.Username,
+				"operation":  "user_register",
+			}).Warn("Validation failed for registration request")
 			httpx.WriteError(w, http.StatusBadRequest, "Validation failed", err.Error())
 			return
 		}
@@ -49,25 +51,28 @@ func RegisterHandler(service *services.UserService, log *logger.Logger) http.Han
 			status := http.StatusInternalServerError
 			if strings.Contains(err.Error(), "email already exists") || strings.Contains(err.Error(), "username already exists") {
 				status = http.StatusConflict
-				log.WithError(err).WithFields(logger.Fields{
-					"email":    req.Email,
-					"username": req.Username,
-				}).WithOperation("user_register").Warn("User registration failed - user already exists")
+				log.WithError(err).WithFields(logrus.Fields{
+					"email":     req.Email,
+					"username":  req.Username,
+					"operation": "user_register",
+				}).Warn("User registration failed - user already exists")
 			} else {
-				log.WithError(err).WithFields(logger.Fields{
-					"email":    req.Email,
-					"username": req.Username,
-				}).WithOperation("user_register").Error("User registration failed")
+				log.WithError(err).WithFields(logrus.Fields{
+					"email":     req.Email,
+					"username":  req.Username,
+					"operation": "user_register",
+				}).Error("User registration failed")
 			}
 			httpx.WriteError(w, status, "Registration failed", err.Error())
 			return
 		}
 
-		log.WithFields(logger.Fields{
-			"userID":   res.ID,
-			"email":    req.Email,
-			"username": req.Username,
-		}).WithOperation("user_register").Info("User registered successfully")
+		log.WithFields(logrus.Fields{
+			"userID":    res.ID,
+			"email":     req.Email,
+			"username":  req.Username,
+			"operation": "user_register",
+		}).Info("User registered successfully")
 
 		httpx.WriteSuccess(w, http.StatusCreated, "User registered successfully", res)
 	}
@@ -90,28 +95,34 @@ func LoginHandler(service *services.UserService, log *logger.Logger) http.Handle
 		var req reqresp.LoginUserRequest
 
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			log.WithError(err).WithOperation("user_login").Error("Failed to decode login request")
+			log.WithError(err).WithField("operation", "user_login").Error("Failed to decode login request")
 			httpx.WriteError(w, http.StatusBadRequest, "Invalid request", "Malformed JSON")
 			return
 		}
 
 		if err := validate.Struct(&req); err != nil {
-			log.WithError(err).WithField("email", req.Email).WithOperation("user_login").Warn("Validation failed for login request")
+			log.WithError(err).WithFields(logrus.Fields{
+				"email":     req.Email,
+				"operation": "user_login",
+			}).Warn("Validation failed for login request")
 			httpx.WriteError(w, http.StatusBadRequest, "Validation failed", err.Error())
 			return
 		}
 
 		resp, err := service.Login(r.Context(), &req)
 		if err != nil {
-			log.WithError(err).WithField("email", req.Email).WithOperation("user_login").Warn("Login failed - invalid credentials")
+			log.WithError(err).WithFields(logrus.Fields{
+				"email":     req.Email,
+				"operation": "user_login",
+			}).Warn("Login failed - invalid credentials")
 			httpx.WriteError(w, http.StatusUnauthorized, "Login failed", err.Error())
 			return
 		}
 
-		log.WithFields(logger.Fields{
-			"userID": resp.ID,
-			"email":  req.Email,
-		}).WithOperation("user_login").Info("User logged in successfully")
+		log.WithFields(logrus.Fields{
+			"email":     req.Email,
+			"operation": "user_login",
+		}).Info("User logged in successfully")
 
 		httpx.WriteSuccess(w, http.StatusOK, "Login successful", resp)
 	}
@@ -130,14 +141,14 @@ func RefreshHandler(service *services.UserService, log *logger.Logger) http.Hand
 
 		cookie, err := r.Cookie("refresh_token")
 		if err != nil {
-			log.WithError(err).WithOperation("token_refresh").Warn("Missing refresh token cookie")
+			log.WithError(err).WithField("operation", "token_refresh").Warn("Missing refresh token cookie")
 			httpx.WriteError(w, http.StatusUnauthorized, "Unauthorized", "Missing refresh token cookie")
 			return
 		}
 
 		token, err := service.Refresh(r.Context(), cookie.Value)
 		if err != nil {
-			log.WithError(err).WithOperation("token_refresh").Warn("Token refresh failed - invalid or expired refresh token")
+			log.WithError(err).WithField("operation", "token_refresh").Warn("Token refresh failed - invalid or expired refresh token")
 			httpx.WriteError(w, http.StatusUnauthorized, "Unauthorized", "Invalid or expired refresh token")
 			return
 		}
@@ -171,7 +182,7 @@ func VerifyHandler(service *services.UserService, log *logger.Logger) http.Handl
 		tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
 
 		if err := service.Verify(tokenStr); err != nil {
-			log.WithError(err).WithOperation("token_verify").Warn("Token verification failed - invalid or expired token")
+			log.WithError(err).WithField("operation", "token_verify").Warn("Token verification failed - invalid or expired token")
 			httpx.WriteError(w, http.StatusUnauthorized, "Unauthorized", "Invalid or expired token")
 			return
 		}
@@ -198,16 +209,25 @@ func GetCurrentUserHandler(service *services.UserService, log *logger.Logger) ht
 			return
 		}
 
-		log.WithUser(userID).WithOperation("get_current_user").Info("Getting current user")
+		log.WithFields(logrus.Fields{
+			"userID":    userID,
+			"operation": "get_current_user",
+		}).Info("Getting current user")
 
 		user, err := service.GetCurrentUser(r.Context(), userID)
 		if err != nil {
 			if err.Error() == "user not found" {
-				log.WithUser(userID).WithOperation("get_current_user").Warn("User not found")
+				log.WithFields(logrus.Fields{
+					"userID":    userID,
+					"operation": "get_current_user",
+				}).Warn("User not found")
 				httpx.WriteError(w, http.StatusNotFound, "Not Found", "User not found")
 				return
 			}
-			log.WithError(err).WithUser(userID).WithOperation("get_current_user").Error("Failed to get current user")
+			log.WithError(err).WithFields(logrus.Fields{
+				"userID":    userID,
+				"operation": "get_current_user",
+			}).Error("Failed to get current user")
 			httpx.WriteError(w, http.StatusInternalServerError, "Internal Server Error", err.Error())
 			return
 		}
@@ -219,7 +239,10 @@ func GetCurrentUserHandler(service *services.UserService, log *logger.Logger) ht
 			Role:     string(user.Role),
 		}
 
-		log.WithUser(userID).WithOperation("get_current_user").Info("Current user retrieved successfully")
+		log.WithFields(logrus.Fields{
+			"userID":    userID,
+			"operation": "get_current_user",
+		}).Info("Current user retrieved successfully")
 		httpx.WriteSuccess(w, http.StatusOK, "User retrieved successfully", response)
 	}
 }

@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"github.com/jmoiron/sqlx"
+	"github.com/sirupsen/logrus"
 	"go-app-marketplace/pkg/domain"
 	"go-app-marketplace/pkg/logger"
 )
@@ -29,11 +30,11 @@ func (r *UserPostgresRepo) IsUsernameTaken(ctx context.Context, username string)
 }
 
 func (r *UserPostgresRepo) CreateUser(ctx context.Context, user *domain.User) (int64, error) {
-	r.logger.WithFields(logger.Fields{
+	r.logger.WithFields(logrus.Fields{
 		"email":    user.Email,
 		"username": user.Username,
 		"role":     user.Role,
-	}).WithOperation("create_user").Info("Creating user in database")
+	}).WithField("operation", "create_user").Info("Creating user in database")
 
 	var id int64
 	err := r.db.GetContext(ctx, &id,
@@ -42,18 +43,18 @@ func (r *UserPostgresRepo) CreateUser(ctx context.Context, user *domain.User) (i
 		user.Username, user.Email, user.Password, user.Role)
 	
 	if err != nil {
-		r.logger.WithError(err).WithFields(logger.Fields{
+		r.logger.WithError(err).WithFields(logrus.Fields{
 			"email":    user.Email,
 			"username": user.Username,
-		}).WithOperation("create_user").Error("Failed to create user in database")
+		}).WithField("operation", "create_user").Error("Failed to create user in database")
 		return 0, err
 	}
 
-	r.logger.WithFields(logger.Fields{
+	r.logger.WithFields(logrus.Fields{
 		"userID":   id,
 		"email":    user.Email,
 		"username": user.Username,
-	}).WithOperation("create_user").Info("User created successfully in database")
+	}).WithField("operation", "create_user").Info("User created successfully in database")
 
 	return id, err
 }

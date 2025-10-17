@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"go-app-marketplace/pkg/logger"
+	"github.com/sirupsen/logrus"
 	"net/http"
 	"time"
 )
@@ -23,7 +24,7 @@ func LoggingMiddleware(log *logger.Logger) func(http.Handler) http.Handler {
 
 			// Логируем запрос
 			duration := time.Since(start)
-			log.WithFields(logger.Fields{
+			log.WithFields(logrus.Fields{
 				"method":     r.Method,
 				"path":       r.URL.Path,
 				"query":      r.URL.RawQuery,

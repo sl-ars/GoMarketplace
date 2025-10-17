@@ -48,23 +48,23 @@ func NewRouter(s *Services) http.Handler {
 
 	// Cart routes
 	cartHandler := cart.NewCartHandler(s.Cart)
-	cart.RegisterCartRoutes(api.PathPrefix("/").Subrouter(), cartHandler, s.JWTKey)
+	cart.RegisterCartRoutes(api.PathPrefix("/").Subrouter(), cartHandler, s.JWTKey, s.Logger)
 
 	// Product routes
 	productHandler := product.NewProductHandler(s.Product, s.Offer)
-	product.RegisterProductRoutes(api.PathPrefix("/").Subrouter(), productHandler, s.JWTKey)
+	product.RegisterProductRoutes(api.PathPrefix("/").Subrouter(), productHandler, s.JWTKey, s.Logger)
 
 	// Offer routes
 	offerHandler := offer.NewOfferHandler(s.Offer)
-	offer.RegisterOfferRoutes(api.PathPrefix("/").Subrouter(), offerHandler, s.JWTKey)
+	offer.RegisterOfferRoutes(api.PathPrefix("/").Subrouter(), offerHandler, s.JWTKey, s.Logger)
 
 	// Order routes
 	orderHandler := order.NewOrderHandler(s.Order)
-	order.RegisterOrderRoutes(api.PathPrefix("/").Subrouter(), orderHandler, s.JWTKey)
+	order.RegisterOrderRoutes(api.PathPrefix("/").Subrouter(), orderHandler, s.JWTKey, s.Logger)
 
 	// Refund routes
 	refundHandler := refund.NewHandler(s.Refund)
-	refund.Register(api.PathPrefix("/").Subrouter(), refundHandler, s.JWTKey)
+	refund.Register(api.PathPrefix("/").Subrouter(), refundHandler, s.JWTKey, s.Logger)
 
 	// Stripe Webhook Handler
 	stripeWebhookHandler := webhook.NewStripeWebhookHandler(s.Order, s.Payment.GetWebhookSecret())

@@ -4,9 +4,10 @@ import (
 	"github.com/gorilla/mux"
 	"go-app-marketplace/internal/middleware"
 	"go-app-marketplace/pkg/domain"
+	"go-app-marketplace/pkg/logger"
 )
 
-func RegisterProductRoutes(r *mux.Router, handler *ProductHandler, jwtSecret []byte) {
+func RegisterProductRoutes(r *mux.Router, handler *ProductHandler, jwtSecret []byte, log *logger.Logger) {
 	// Public endpoints
 	public := r.PathPrefix("/products").Subrouter()
 	public.HandleFunc("", handler.ListProducts).Methods("GET")
@@ -14,7 +15,7 @@ func RegisterProductRoutes(r *mux.Router, handler *ProductHandler, jwtSecret []b
 
 	// Admin endpoints
 	admin := r.PathPrefix("/admin/products").Subrouter()
-	admin.Use(middleware.AuthMiddleware(jwtSecret))
+	admin.Use(middleware.AuthMiddleware(jwtSecret, log))
 	admin.Use(middleware.RequireRoles(domain.UserRoleAdmin))
 
 	admin.HandleFunc("", handler.CreateProduct).Methods("POST")
