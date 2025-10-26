@@ -3,9 +3,12 @@ package services
 import (
 	"context"
 	"errors"
+	"fmt"
+	"go-app-marketplace/internal/redisdb"
 	"go-app-marketplace/internal/usecases"
 	"go-app-marketplace/pkg/domain"
 	"go-app-marketplace/pkg/reqresp"
+	"time"
 )
 
 type OrderService struct {
@@ -48,37 +51,49 @@ func (s *OrderService) Checkout(ctx context.Context, userID int64) (*reqresp.Che
 }
 
 func (s *OrderService) GetOrderByID(ctx context.Context, userID, orderID int64) (*reqresp.OrderResponse, error) {
-	order, items, err := s.orderUsecase.GetOrderByID(ctx, orderID)
+	key := fmt.Sprintf("order:%d", orderID)
+
+	// Кэшируем структуру OrderResponse
+	cachedOrder, err := redisdb.CacheGetOrSet(ctx, key, 5*time.Minute, func() (*reqresp.OrderResponse, error) {
+		order, items, err := s.orderUsecase.GetOrderByID(ctx, orderID)
+		if err != nil {
+			return nil, err
+		}
+
+		if order.UserID != userID {
+			return nil, errors.New("order not found or access denied")
+		}
+
+		var itemResponses []reqresp.OrderItemResponse
+		for _, item := range items {
+			itemResponses = append(itemResponses, reqresp.OrderItemResponse{
+				ID:        item.ID,
+				OfferID:   item.OfferID,
+				ProductID: item.ProductID,
+				SellerID:  item.SellerID,
+				Quantity:  item.Quantity,
+				UnitPrice: item.UnitPrice,
+				Status:    string(item.Status),
+			})
+		}
+
+		resp := &reqresp.OrderResponse{
+			ID:            order.ID,
+			UserID:        order.UserID,
+			TotalAmount:   order.TotalAmount,
+			Status:        string(order.Status),
+			PaymentStatus: string(order.PaymentStatus),
+			Items:         itemResponses,
+		}
+
+		return resp, nil
+	})
+
 	if err != nil {
 		return nil, err
 	}
 
-	// Ensure the order belongs to the requesting user
-	if order.UserID != userID {
-		return nil, errors.New("order not found or access denied")
-	}
-
-	var itemResponses []reqresp.OrderItemResponse
-	for _, item := range items {
-		itemResponses = append(itemResponses, reqresp.OrderItemResponse{
-			ID:        item.ID,
-			OfferID:   item.OfferID,
-			ProductID: item.ProductID,
-			SellerID:  item.SellerID,
-			Quantity:  item.Quantity,
-			UnitPrice: item.UnitPrice,
-			Status:    string(item.Status),
-		})
-	}
-
-	return &reqresp.OrderResponse{
-		ID:            order.ID,
-		UserID:        order.UserID,
-		TotalAmount:   order.TotalAmount,
-		Status:        string(order.Status),
-		PaymentStatus: string(order.PaymentStatus),
-		Items:         itemResponses,
-	}, nil
+	return cachedOrder, nil
 }
 
 func (s *OrderService) CheckoutExistingOrder(ctx context.Context, userID, orderID int64) (*reqresp.CheckoutResponse, error) {
@@ -161,7 +176,11 @@ func (s *OrderService) ListOrders(ctx context.Context, userID int64) ([]reqresp.
 }
 
 func (s *OrderService) UpdatePaymentStatusByOrderID(ctx context.Context, orderIDStr string, status domain.PaymentStatus) error {
-	return s.orderUsecase.UpdatePaymentStatusByOrderID(ctx, orderIDStr, status)
+	err := s.orderUsecase.UpdatePaymentStatusByOrderID(ctx, orderIDStr, status)
+	if err == nil {
+		_ = redisdb.Rdb.Del(ctx, fmt.Sprintf("order:%s", orderIDStr))
+	}
+	return err
 }
 
 func (s *OrderService) SellerUpdateOrderItemStatus(

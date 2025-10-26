@@ -2,8 +2,11 @@ package services
 
 import (
 	"context"
+	"fmt"
+	"go-app-marketplace/internal/redisdb"
 	"go-app-marketplace/internal/usecases"
 	"go-app-marketplace/pkg/domain"
+	"time"
 )
 
 type ProductService struct {
@@ -23,7 +26,17 @@ func (s *ProductService) CreateProduct(ctx context.Context, name, description st
 }
 
 func (s *ProductService) GetProductByID(ctx context.Context, id int64) (*domain.Product, error) {
-	return s.usecase.GetProductByID(ctx, id)
+	key := fmt.Sprintf("product:%d", id)
+
+	p,err := redisdb.CacheGetOrSet(ctx, key, 5*time.Minute, func() (*domain.Product, error){
+		return s.usecase.GetProductByID(ctx, id)
+	})
+
+	if err != nil{
+		return  nil, err
+	}
+
+	return  p, nil
 }
 
 func (s *ProductService) ListProducts(ctx context.Context, page, pageSize int) ([]*domain.Product, int64, error) {

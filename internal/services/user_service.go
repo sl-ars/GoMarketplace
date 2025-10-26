@@ -2,12 +2,16 @@ package services
 
 import (
 	"context"
-	"github.com/golang-jwt/jwt/v5"
+	"fmt"
+	"go-app-marketplace/internal/redisdb"
 	"go-app-marketplace/internal/usecases"
 	"go-app-marketplace/pkg/auth"
 	"go-app-marketplace/pkg/domain"
 	"go-app-marketplace/pkg/hash"
 	"go-app-marketplace/pkg/reqresp"
+	"time"
+
+	"github.com/golang-jwt/jwt/v5"
 )
 
 type UserService struct {
@@ -103,5 +107,14 @@ func (s *UserService) Verify(tokenStr string) error {
 }
 
 func (s *UserService) GetCurrentUser(ctx context.Context, userID int64) (*domain.User, error) {
-	return s.usecase.GetUserByID(ctx, userID)
+	key := fmt.Sprintf("user:%d", userID)
+
+	user, err := redisdb.CacheGetOrSet(ctx, key, 10*time.Minute, func() (*domain.User, error) {
+		return s.usecase.GetUserByID(ctx, userID)
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return user, nil
 }

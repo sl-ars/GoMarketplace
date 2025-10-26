@@ -3,8 +3,11 @@ package services
 import (
 	"context"
 	"errors"
+	"fmt"
+	"go-app-marketplace/internal/redisdb"
 	"go-app-marketplace/internal/usecases"
 	"go-app-marketplace/pkg/domain"
+	"time"
 )
 
 type CartService struct {
@@ -31,17 +34,35 @@ func (s *CartService) AddItem(ctx context.Context, userID, offerID int64, quanti
 		return usecases.ErrAddItemFailed
 	}
 
+	_ = redisdb.Rdb.Del(ctx, fmt.Sprintf("cart:%d", userID))
+
 	return err
 }
 
 func (s *CartService) GetCart(ctx context.Context, userID int64) ([]domain.CartItem, error) {
-	return s.usecase.GetItems(ctx, userID)
+	key := fmt.Sprintf("cart:%d", userID)
+	
+	cart, err := redisdb.CacheGetOrSet(ctx,key, 2*time.Minute, func() ([]domain.CartItem, error) {
+		return s.usecase.GetItems(ctx, userID)
+	})
+	if err != nil{
+		return cart, err
+	}
+	return cart, nil
 }
 
 func (s *CartService) RemoveItem(ctx context.Context, userID, offerID int64) error {
-	return s.usecase.RemoveItem(ctx, userID, offerID)
+	err := s.usecase.RemoveItem(ctx, userID, offerID)
+	if err == nil{
+		_ = redisdb.Rdb.Del(ctx, fmt.Sprintf("cart:%d", userID))
+	}
+	return err
 }
 
 func (s *CartService) ClearCart(ctx context.Context, userID int64) error {
-	return s.usecase.ClearCart(ctx, userID)
+	err := s.usecase.ClearCart(ctx, userID)
+	if err == nil {
+		_ = redisdb.Rdb.Del(ctx, fmt.Sprintf("cart:%d", userID))
+	}
+	return err
 }
