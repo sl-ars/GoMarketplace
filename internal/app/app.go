@@ -8,6 +8,7 @@ import (
 	"go-app-marketplace/internal/repositories"
 	"go-app-marketplace/internal/services"
 	"go-app-marketplace/internal/usecases"
+	"go-app-marketplace/internal/messagebus"  
 	"log"
 )
 
@@ -24,6 +25,25 @@ func Run(configFiles ...string) {
 		log.Fatalf("Failed to initialize connections: %v", err)
 	}
 	defer conns.Close()
+
+		// --- RabbitMQ connection ---
+	rmqConn, rmqCh, err := connections.NewRabbitMQConn(connections.RabbitMQConfig{
+		URL: cfg.RabbitMQURL,
+	})
+	if err != nil {
+		log.Fatalf("failed to connect to RabbitMQ: %v", err)
+	}
+	defer rmqConn.Close()
+	defer rmqCh.Close()
+
+	orderPublisher, err := messagebus.NewRabbitMQOrderPublisher(
+		rmqCh,
+		"app.exchange",   // exchange name
+		"orders.created", // routing key
+	)
+	if err != nil {
+		log.Fatalf("failed to create order publisher: %v", err)
+	}
 
 	// Dependency injection
 	userRepo := repositories.NewUserPostgresRepo(conns.DB)
@@ -43,7 +63,7 @@ func Run(configFiles ...string) {
 	cartService := services.NewCartService(cartUC)
 
 	orderRepo := repositories.NewOrderRepository(conns.DB)
-	orderUC := usecases.NewOrderUsecase(orderRepo, cartRepo, offerRepo)
+	orderUC := usecases.NewOrderUsecase(orderRepo, cartRepo, offerRepo, orderPublisher)
 	orderService := services.NewOrderService(orderUC)
 
 	// Stripe Payment Service
