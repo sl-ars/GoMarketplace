@@ -1,13 +1,37 @@
 basePath: /
 definitions:
-  go-app-marketplace_pkg_reqresp.ErrorInfo:
+  reqresp.AddItemToCartRequest:
+    properties:
+      offer_id:
+        type: integer
+      quantity:
+        minimum: 1
+        type: integer
+    required:
+    - offer_id
+    - quantity
+    type: object
+  reqresp.CheckoutResponse:
+    properties:
+      order_id:
+        type: integer
+      payment_url:
+        type: string
+      total_amount:
+        type: number
+    type: object
+  reqresp.ErrorInfo:
     properties:
       code:
+        example: 400
         type: integer
+        x-order: "1"
       details:
+        example: 'Invalid ID format: expected integer, got ''abc'''
         type: string
+        x-order: "2"
     type: object
-  go-app-marketplace_pkg_reqresp.LoginUserRequest:
+  reqresp.LoginUserRequest:
     properties:
       email:
         type: string
@@ -17,7 +41,157 @@ definitions:
     - email
     - password
     type: object
-  go-app-marketplace_pkg_reqresp.RegisterUserRequest:
+  reqresp.OfferCreateRequest:
+    properties:
+      is_available:
+        description: Whether the offer is currently available for purchase
+        example: true
+        type: boolean
+        x-order: "4"
+      price:
+        description: The price of the offer
+        example: 29.99
+        type: number
+        x-order: "2"
+      product_id:
+        description: The ID of the product for which the offer is being created
+        example: 1
+        type: integer
+        x-order: "1"
+      stock:
+        description: The available stock quantity
+        example: 100
+        type: integer
+        x-order: "3"
+    required:
+    - price
+    - product_id
+    - stock
+    type: object
+  reqresp.OfferCreateResponse:
+    properties:
+      id:
+        description: The generated ID of the created offer
+        example: 1
+        type: integer
+    type: object
+  reqresp.OfferResponse:
+    properties:
+      created_at:
+        description: The timestamp when the offer was created, in RFC3339 format
+        example: "2023-04-15T14:32:20Z"
+        type: string
+        x-order: "7"
+      id:
+        description: The unique identifier of the offer
+        example: 1
+        type: integer
+        x-order: "1"
+      is_available:
+        description: Whether the offer is currently available for purchase
+        example: true
+        type: boolean
+        x-order: "6"
+      price:
+        description: The price of the product in this offer
+        example: 29.99
+        type: number
+        x-order: "4"
+      product_id:
+        description: The product ID this offer is for
+        example: 42
+        type: integer
+        x-order: "2"
+      seller_id:
+        description: The ID of the seller who created the offer
+        example: 5
+        type: integer
+        x-order: "3"
+      stock:
+        description: The available stock quantity
+        example: 100
+        type: integer
+        x-order: "5"
+      updated_at:
+        description: The timestamp when the offer was last updated, in RFC3339 format
+        example: "2023-04-16T09:12:55Z"
+        type: string
+        x-order: "8"
+    type: object
+  reqresp.OfferUpdateRequest:
+    properties:
+      is_available:
+        description: Whether the offer should be available for purchase
+        example: true
+        type: boolean
+        x-order: "3"
+      price:
+        description: The updated price of the offer
+        example: 39.99
+        type: number
+        x-order: "1"
+      stock:
+        description: The updated stock quantity
+        example: 50
+        type: integer
+        x-order: "2"
+    required:
+    - price
+    - stock
+    type: object
+  reqresp.OrderItemResponse:
+    properties:
+      id:
+        type: integer
+      offer_id:
+        type: integer
+      product_id:
+        type: integer
+      quantity:
+        type: integer
+      seller_id:
+        type: integer
+      status:
+        type: string
+      unit_price:
+        type: number
+    type: object
+  reqresp.OrderResponse:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: integer
+      items:
+        items:
+          $ref: '#/definitions/reqresp.OrderItemResponse'
+        type: array
+      payment_status:
+        type: string
+      status:
+        type: string
+      total_amount:
+        type: number
+      user_id:
+        type: integer
+    type: object
+  reqresp.ProductCreateRequest:
+    properties:
+      description:
+        type: string
+      name:
+        type: string
+    required:
+    - name
+    type: object
+  reqresp.RefundRequestBody:
+    properties:
+      reason:
+        type: string
+    required:
+    - reason
+    type: object
+  reqresp.RegisterUserRequest:
     properties:
       email:
         type: string
@@ -32,24 +206,158 @@ definitions:
     - password
     - username
     type: object
-  go-app-marketplace_pkg_reqresp.StandardResponse:
+  reqresp.StandardResponse:
     properties:
-      data: {}
+      data:
+        x-order: "3"
       error:
-        $ref: '#/definitions/go-app-marketplace_pkg_reqresp.ErrorInfo'
+        allOf:
+        - $ref: '#/definitions/reqresp.ErrorInfo'
+        x-order: "4"
       message:
+        example: Operation completed successfully
         type: string
+        x-order: "2"
       success:
+        example: true
         type: boolean
+        x-order: "1"
     type: object
-host: localhost:8080
+  reqresp.UpdateOrderItemStatusRequest:
+    properties:
+      status:
+        enum:
+        - processing
+        - delivered
+        type: string
+    required:
+    - status
+    type: object
 info:
   contact: {}
-  description: This is the API documentation for the online marketplace.
-  title: Online Marketplace
-  version: "0.1"
+  description: API documentation for Marketplace project
+  title: Go Marketplace API
+  version: "1.0"
 paths:
-  /login:
+  /api/admin/products:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Product data
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/reqresp.ProductCreateRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+      security:
+      - BearerAuth: []
+      summary: Create product
+      tags:
+      - products
+  /api/cart:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+      security:
+      - BearerAuth: []
+      summary: Get cart items
+      tags:
+      - Cart
+  /api/cart/add:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Offer ID and Quantity
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/reqresp.AddItemToCartRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+      security:
+      - BearerAuth: []
+      summary: Add item to cart
+      tags:
+      - Cart
+  /api/cart/clear:
+    delete:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+      security:
+      - BearerAuth: []
+      summary: Clear cart
+      tags:
+      - Cart
+  /api/cart/remove/{offer_id}:
+    delete:
+      parameters:
+      - description: Offer ID
+        in: path
+        name: offer_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+      security:
+      - BearerAuth: []
+      summary: Remove item from cart
+      tags:
+      - Cart
+  /api/login:
     post:
       consumes:
       - application/json
@@ -60,26 +368,453 @@ paths:
         name: input
         required: true
         schema:
-          $ref: '#/definitions/go-app-marketplace_pkg_reqresp.LoginUserRequest'
+          $ref: '#/definitions/reqresp.LoginUserRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/go-app-marketplace_pkg_reqresp.StandardResponse'
+            $ref: '#/definitions/reqresp.StandardResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/go-app-marketplace_pkg_reqresp.StandardResponse'
+            $ref: '#/definitions/reqresp.StandardResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/go-app-marketplace_pkg_reqresp.StandardResponse'
+            $ref: '#/definitions/reqresp.StandardResponse'
       summary: Login user
       tags:
       - users
-  /refresh:
+  /api/me:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+      security:
+      - BearerAuth: []
+      summary: Get current user
+      tags:
+      - users
+  /api/offers:
+    post:
+      consumes:
+      - application/json
+      description: Create a new offer for a product
+      parameters:
+      - description: Offer data
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/reqresp.OfferCreateRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/reqresp.StandardResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/reqresp.OfferCreateResponse'
+              type: object
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+        "500":
+          description: Server error
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+      security:
+      - BearerAuth: []
+      summary: Create offer
+      tags:
+      - offers
+  /api/offers/{id}:
+    delete:
+      description: Delete an existing offer
+      parameters:
+      - description: Offer ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Offer deleted successfully
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+        "400":
+          description: Invalid offer ID
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+        "403":
+          description: Forbidden - not the offer owner
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+        "404":
+          description: Offer not found
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+        "500":
+          description: Server error
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete offer
+      tags:
+      - offers
+    get:
+      description: Retrieve a specific offer by its ID
+      parameters:
+      - description: Offer ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/reqresp.StandardResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/reqresp.OfferResponse'
+              type: object
+        "400":
+          description: Invalid offer ID
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+        "404":
+          description: Offer not found
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+        "500":
+          description: Server error
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+      security:
+      - BearerAuth: []
+      summary: Get offer by ID
+      tags:
+      - offers
+    put:
+      consumes:
+      - application/json
+      description: Update an existing offer
+      parameters:
+      - description: Offer ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Updated offer data
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/reqresp.OfferUpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Offer updated successfully
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+        "403":
+          description: Forbidden - not the offer owner
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+        "404":
+          description: Offer not found
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+        "500":
+          description: Server error
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+      security:
+      - BearerAuth: []
+      summary: Update offer
+      tags:
+      - offers
+  /api/offers/me:
+    get:
+      description: Get a list of all offers created by the current seller
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/reqresp.StandardResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/reqresp.OfferResponse'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+        "500":
+          description: Server error
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+      security:
+      - BearerAuth: []
+      summary: List my offers
+      tags:
+      - offers
+  /api/orders:
+    get:
+      description: Get a list of all user's orders
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/reqresp.OrderResponse'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+      security:
+      - BearerAuth: []
+      summary: List user orders
+      tags:
+      - orders
+  /api/orders/{id}:
+    get:
+      description: Get detailed information about a specific order
+      parameters:
+      - description: Order ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/reqresp.OrderResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+      security:
+      - BearerAuth: []
+      summary: Get order details
+      tags:
+      - orders
+  /api/orders/{id}/cancel:
+    post:
+      description: Cancel a specific order item
+      parameters:
+      - description: Order item ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+      security:
+      - BearerAuth: []
+      summary: Cancel order item
+      tags:
+      - orders
+  /api/orders/checkout:
+    post:
+      description: Create a new order from cart items
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/reqresp.CheckoutResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+      security:
+      - BearerAuth: []
+      summary: Checkout cart
+      tags:
+      - orders
+  /api/orders/checkout/{id}:
+    post:
+      description: Create new payment session for an existing order
+      parameters:
+      - description: Order ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/reqresp.CheckoutResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+      security:
+      - BearerAuth: []
+      summary: Checkout existing order
+      tags:
+      - orders
+  /api/products:
+    get:
+      parameters:
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Number of items per page
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+      summary: List all products
+      tags:
+      - products
+  /api/products/{id}:
+    get:
+      parameters:
+      - description: Product ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+      summary: Get product with offers
+      tags:
+      - products
+  /api/refresh:
     post:
       description: Refreshes JWT access token using refresh_token cookie
       produces:
@@ -88,15 +823,86 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/go-app-marketplace_pkg_reqresp.StandardResponse'
+            $ref: '#/definitions/reqresp.StandardResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/go-app-marketplace_pkg_reqresp.StandardResponse'
+            $ref: '#/definitions/reqresp.StandardResponse'
       summary: Refresh access token
       tags:
       - users
-  /register:
+  /api/refunds/{item_id}:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Order-item ID
+        in: path
+        name: item_id
+        required: true
+        type: integer
+      - description: Refund reason
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/reqresp.RefundRequestBody'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+      security:
+      - BearerAuth: []
+      summary: Request a refund for an order-item
+      tags:
+      - refunds
+  /api/refunds/{refund_id}/decide:
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: Refund ID
+        in: path
+        name: refund_id
+        required: true
+        type: integer
+      - description: 'Action: approve | reject'
+        in: query
+        name: action
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+      security:
+      - BearerAuth: []
+      summary: Approve or reject a refund
+      tags:
+      - refunds
+  /api/register:
     post:
       consumes:
       - application/json
@@ -107,26 +913,93 @@ paths:
         name: input
         required: true
         schema:
-          $ref: '#/definitions/go-app-marketplace_pkg_reqresp.RegisterUserRequest'
+          $ref: '#/definitions/reqresp.RegisterUserRequest'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/go-app-marketplace_pkg_reqresp.StandardResponse'
+            $ref: '#/definitions/reqresp.StandardResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/go-app-marketplace_pkg_reqresp.StandardResponse'
+            $ref: '#/definitions/reqresp.StandardResponse'
         "409":
           description: Conflict
           schema:
-            $ref: '#/definitions/go-app-marketplace_pkg_reqresp.StandardResponse'
+            $ref: '#/definitions/reqresp.StandardResponse'
       summary: Register new user
       tags:
       - users
-  /verify:
+  /api/seller/orders:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+      security:
+      - BearerAuth: []
+      summary: 'Seller: list own order-items'
+      tags:
+      - orders
+  /api/seller/orders/items/{id}/status:
+    patch:
+      consumes:
+      - application/json
+      description: Seller sets status to 'processing' or 'delivered'
+      parameters:
+      - description: Order item ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: New status
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/reqresp.UpdateOrderItemStatusRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+      security:
+      - BearerAuth: []
+      summary: Seller updates order-item status
+      tags:
+      - orders
+  /api/verify:
     get:
       description: Verifies the JWT token in Authorization header
       produces:
@@ -135,14 +1008,49 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/go-app-marketplace_pkg_reqresp.StandardResponse'
+            $ref: '#/definitions/reqresp.StandardResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/go-app-marketplace_pkg_reqresp.StandardResponse'
+            $ref: '#/definitions/reqresp.StandardResponse'
       security:
       - BearerAuth: []
       summary: Verify JWT access token
       tags:
       - users
+  /api/webhook/stripe:
+    post:
+      consumes:
+      - application/json
+      description: Process Stripe webhook events for payment status updates
+      parameters:
+      - description: Stripe webhook signature
+        in: header
+        name: Stripe-Signature
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Webhook received
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+        "400":
+          description: Invalid webhook signature
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+        "503":
+          description: Service unavailable
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+      summary: Handle Stripe webhook events
+      tags:
+      - webhooks
+securityDefinitions:
+  BearerAuth:
+    description: Type "Bearer" followed by a space and JWT token.
+    in: header
+    name: Authorization
+    type: apiKey
 swagger: "2.0"

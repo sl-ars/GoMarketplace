@@ -14,6 +14,7 @@ type Config struct {
 	JWTSecret           string           `env:"JWT_SECRET"`
 	StripeSecretKey     string           `env:"STRIPE_SECRET_KEY"`
 	StripeWebhookSecret string           `env:"STRIPE_WEBHOOK_SECRET"`
+	RabbitMQURL 		string			 `env:"RABBIT_MQ_URL"`
 }
 
 type HTTPServerConfig struct {

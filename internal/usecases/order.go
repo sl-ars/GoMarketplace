@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"go-app-marketplace/internal/repositories"
+	"go-app-marketplace/internal/messagebus"
 	"go-app-marketplace/pkg/domain"
 	"go-app-marketplace/pkg/reqresp"
 )
@@ -12,17 +13,21 @@ type OrderUsecase struct {
 	orderRepo *repositories.OrderRepository
 	cartRepo  *repositories.CartRepository
 	offerRepo *repositories.OfferRepository
+
+	orderPublisher messagebus.OrderEventPublisher
 }
 
 func NewOrderUsecase(
 	orderRepo *repositories.OrderRepository,
 	cartRepo *repositories.CartRepository,
 	offerRepo *repositories.OfferRepository,
+	orderPublisher messagebus.OrderEventPublisher,
 ) *OrderUsecase {
 	return &OrderUsecase{
 		orderRepo: orderRepo,
 		cartRepo:  cartRepo,
 		offerRepo: offerRepo,
+		orderPublisher: orderPublisher,
 	}
 }
 
@@ -70,6 +75,15 @@ func (u *OrderUsecase) Checkout(ctx context.Context, userID int64) (int64, float
 	// Clear cart
 	if err := u.cartRepo.ClearCart(ctx, userID); err != nil {
 		return 0, 0, err
+	}
+
+	// 🔔 NEW: publish "order.created" event (fire-and-forget)
+	if u.orderPublisher != nil {
+		_ = u.orderPublisher.PublishOrderCreated(ctx, messagebus.OrderCreatedEvent{
+			OrderID:     orderID,
+			UserID:      userID,
+			TotalAmount: totalAmount,
+		})
 	}
 
 	return orderID, totalAmount, nil
