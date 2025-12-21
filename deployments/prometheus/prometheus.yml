@@ -1,0 +1,45 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+
+rule_files: []
+
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # GoMarketplace API
+  - job_name: 'marketplace-api'
+    static_configs:
+      - targets: ['host.docker.internal:8080']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # PostgreSQL (via postgres_exporter if added)
+  # - job_name: 'postgres'
+  #   static_configs:
+  #     - targets: ['postgres-exporter:9187']
+
+  # Redis (via redis_exporter if added)
+  # - job_name: 'redis'
+  #   static_configs:
+  #     - targets: ['redis-exporter:9121']
+
+  # RabbitMQ (via built-in prometheus plugin)
+  - job_name: 'rabbitmq'
+    static_configs:
+      - targets: ['rabbitmq:15692']
+    metrics_path: '/metrics'
+
+  # Elasticsearch (if prometheus exporter is enabled)
+  # - job_name: 'elasticsearch'
+  #   static_configs:
+  #     - targets: ['elasticsearch-exporter:9114']
+

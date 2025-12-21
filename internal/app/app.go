@@ -17,6 +17,7 @@ import (
 	"go-app-marketplace/internal/services"
 	"go-app-marketplace/internal/usecases"
 	"go-app-marketplace/pkg/logger"
+	"go-app-marketplace/pkg/metrics"
 	"go-app-marketplace/pkg/ratelimit"
 )
 
@@ -201,6 +202,11 @@ func Run(configFiles ...string) {
 
 	// Router
 	router := http.NewRouter(svc)
+
+	// Start metrics collector (updates gauges from database)
+	metricsCollector := metrics.NewCollector(conns.DB, appLogger.Logger)
+	metricsCollector.Start(30 * time.Second) // Collect every 30 seconds
+	defer metricsCollector.Stop()
 
 	// Start the server
 	appLogger.WithField("port", cfg.HTTPServer.Port).Info("Starting HTTP server")

@@ -25,7 +25,7 @@ services:
     command: redis-server --appendonly yes
 
   rabbitmq:
-    image: zhanibek05/marketplace-rabbitmq:3.13.7-delayed
+    image: rabbitmq:3-management
     env_file:
       - ./configs/.env
     ports:
@@ -64,8 +64,45 @@ services:
     depends_on:
       elasticsearch:
         condition: service_healthy
+  prometheus:
+    image: prom/prometheus:v2.47.0
+    container_name: marketplace-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./deployments/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  grafana:
+    image: grafana/grafana:10.2.0
+    container_name: marketplace-grafana
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./configs/.env
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_ROOT_URL=http://localhost:3000
+      - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource
+    volumes:
+      - ./deployments/grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
 
 volumes:
   postgres_data:
   redis_data:
   es_data:
+  prometheus_data:
+  grafana_data:
