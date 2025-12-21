@@ -41,7 +41,7 @@ func (r *UserPostgresRepo) CreateUser(ctx context.Context, user *domain.User) (i
 		`INSERT INTO users (username, email, password_hash, role, created_at)
          VALUES ($1, $2, $3, $4, NOW()) RETURNING id`,
 		user.Username, user.Email, user.Password, user.Role)
-	
+
 	if err != nil {
 		r.logger.WithError(err).WithFields(logrus.Fields{
 			"email":    user.Email,

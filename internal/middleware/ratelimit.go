@@ -208,4 +208,3 @@ func setRateLimitHeaders(w http.ResponseWriter, limit ratelimit.Config, result *
 	w.Header().Set("X-RateLimit-Remaining", fmt.Sprintf("%d", result.Remaining))
 	w.Header().Set("X-RateLimit-Reset", fmt.Sprintf("%d", result.ResetAt.Unix()))
 }
-

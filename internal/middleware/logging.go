@@ -1,8 +1,8 @@
 package middleware
 
 import (
-	"go-app-marketplace/pkg/logger"
 	"github.com/sirupsen/logrus"
+	"go-app-marketplace/pkg/logger"
 	"net/http"
 	"time"
 )

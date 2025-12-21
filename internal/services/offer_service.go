@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"go-app-marketplace/internal/messagebus"
 	"go-app-marketplace/internal/redisdb"
 	"go-app-marketplace/internal/usecases"
 	"go-app-marketplace/pkg/domain"
@@ -10,11 +11,12 @@ import (
 )
 
 type OfferService struct {
-	usecase *usecases.OfferUseCase
+	usecase   *usecases.OfferUseCase
+	publisher messagebus.OfferEventPublisher
 }
 
-func NewOfferService(uc *usecases.OfferUseCase) *OfferService {
-	return &OfferService{usecase: uc}
+func NewOfferService(uc *usecases.OfferUseCase, publisher messagebus.OfferEventPublisher) *OfferService {
+	return &OfferService{usecase: uc, publisher: publisher}
 }
 
 func (s *OfferService) CreateOffer(ctx context.Context, productID, sellerID int64, price float64, stock int, isAvailable bool) (int64, error) {
@@ -25,12 +27,12 @@ func (s *OfferService) CreateOffer(ctx context.Context, productID, sellerID int6
 		Stock:       stock,
 		IsAvailable: isAvailable,
 	}
-		id, err := s.usecase.CreateOffer(ctx, offer)
+	id, err := s.usecase.CreateOffer(ctx, offer)
 	if err != nil {
 		return 0, err
 	}
 
-	// Очистка кэша списка офферов по продукту
+	// clear product offers cache
 	key := fmt.Sprintf("offers:product:%d", productID)
 	_ = redisdb.Rdb.Del(ctx, key)
 
@@ -44,7 +46,7 @@ func (s *OfferService) GetOfferByID(ctx context.Context, id int64) (*domain.Offe
 		return s.usecase.GetOfferByID(ctx, id)
 	})
 
-	if err != nil{
+	if err != nil {
 		return nil, err
 	}
 	return offer, nil
@@ -65,6 +67,21 @@ func (s *OfferService) ListOffersByProduct(ctx context.Context, productID int64)
 }
 
 func (s *OfferService) UpdateOffer(ctx context.Context, id, sellerID int64, price float64, stock int, isAvailable bool) error {
+	// If a publisher exists, schedule the update to be applied later (default 1 minute)
+	if s.publisher != nil {
+		evt := messagebus.OfferUpdateEvent{
+			OfferID:     id,
+			SellerID:    sellerID,
+			Price:       price,
+			Stock:       stock,
+			IsAvailable: isAvailable,
+		}
+		// schedule with 60_000 ms delay (1 minute)
+		_ = s.publisher.PublishOfferUpdateDelayed(ctx, evt, 60_000)
+		return nil
+	}
+
+	// fallback: apply immediately
 	offer := &domain.Offer{
 		ID:          id,
 		SellerID:    sellerID,
@@ -76,19 +93,19 @@ func (s *OfferService) UpdateOffer(ctx context.Context, id, sellerID int64, pric
 		return err
 	}
 
-	// Очистка кэша конкретного оффера
+	// clear offer cache
 	offerKey := fmt.Sprintf("offer:%d", id)
 	_ = redisdb.Rdb.Del(ctx, offerKey)
 	return nil
 }
 
 func (s *OfferService) DeleteOffer(ctx context.Context, id, sellerID int64) error {
-		err := s.usecase.DeleteOffer(ctx, id, sellerID)
+	err := s.usecase.DeleteOffer(ctx, id, sellerID)
 	if err != nil {
 		return err
 	}
 
-	// Очистка кэша по ID офферa
+	// clear cache for the offer id
 	key := fmt.Sprintf("offer:%d", id)
 	_ = redisdb.Rdb.Del(ctx, key)
 

@@ -80,6 +80,16 @@ func Run(configFiles ...string) {
 		appLogger.WithError(err).Fatal("failed to create order publisher")
 	}
 
+	// Offer publisher: uses delayed-message exchange (requires rabbitmq_delayed_message_exchange plugin)
+	offerPublisher, err := messagebus.NewRabbitMQOfferPublisher(
+		rmqCh,
+		"app.offers.exchange", // delayed exchange name
+		"offers.update",       // routing key
+	)
+	if err != nil {
+		appLogger.WithError(err).Fatal("failed to create offer publisher")
+	}
+
 	// Dependency injection
 	userRepo := repositories.NewUserPostgresRepo(conns.DB, appLogger)
 
@@ -97,7 +107,7 @@ func Run(configFiles ...string) {
 
 	offerRepo := repositories.NewOfferRepository(conns.DB)
 	offerUC := usecases.NewOfferUseCase(offerRepo)
-	offerService := services.NewOfferService(offerUC)
+	offerService := services.NewOfferService(offerUC, offerPublisher)
 
 	cartRepo := repositories.NewCartRepository(conns.DB)
 	cartUC := usecases.NewCartUseCase(cartRepo, offerRepo)
