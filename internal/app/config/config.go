@@ -14,6 +14,8 @@ type Config struct {
 	DB                  *DBConfig        `envPrefix:"DB_"`
 	Redis               RedisConfig      `envPrefix:"REDIS_"`
 	RateLimit           RateLimitConfig  `envPrefix:"RATELIMIT_"`
+	Email               EmailConfig      `envPrefix:"EMAIL_"`
+	Auth                AuthConfig       `envPrefix:"AUTH_"`
 	JWTSecret           string           `env:"JWT_SECRET"`
 	StripeSecretKey     string           `env:"STRIPE_SECRET_KEY"`
 	StripeWebhookSecret string           `env:"STRIPE_WEBHOOK_SECRET"`
@@ -23,10 +25,29 @@ type Config struct {
 
 // RateLimitConfig defines rate limiting settings
 type RateLimitConfig struct {
-	Enabled          bool `env:"ENABLED" envDefault:"true"`
-	AuthRequests     int  `env:"AUTH_REQUESTS" envDefault:"5"`
-	PublicRequests   int  `env:"PUBLIC_REQUESTS" envDefault:"60"`
-	StandardRequests int  `env:"STANDARD_REQUESTS" envDefault:"120"`
+	Enabled          bool     `env:"ENABLED" envDefault:"true"`
+	AuthRequests     int      `env:"AUTH_REQUESTS" envDefault:"5"`
+	PublicRequests   int      `env:"PUBLIC_REQUESTS" envDefault:"60"`
+	StandardRequests int      `env:"STANDARD_REQUESTS" envDefault:"120"`
+	TrustedProxies   []string `env:"TRUSTED_PROXIES" envSeparator:","`
+}
+
+// EmailConfig defines email/SMTP settings
+type EmailConfig struct {
+	Enabled  bool   `env:"ENABLED" envDefault:"false"`
+	Host     string `env:"HOST" envDefault:"smtp.gmail.com"`
+	Port     int    `env:"PORT" envDefault:"587"`
+	Username string `env:"USERNAME"`
+	Password string `env:"PASSWORD"`
+	From     string `env:"FROM"`
+	FromName string `env:"FROM_NAME" envDefault:"GoMarketplace"`
+	UseTLS   bool   `env:"USE_TLS" envDefault:"true"`
+}
+
+// AuthConfig defines authentication settings
+type AuthConfig struct {
+	BaseURL              string `env:"BASE_URL" envDefault:"http://localhost:8080"`
+	RequireEmailVerified bool   `env:"REQUIRE_EMAIL_VERIFIED" envDefault:"false"`
 }
 
 type RedisConfig struct {
