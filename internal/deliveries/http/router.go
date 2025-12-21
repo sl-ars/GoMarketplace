@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	httpSwagger "github.com/swaggo/http-swagger"
 
 	_ "go-app-marketplace/docs"
@@ -49,8 +50,16 @@ type RateLimitSettings struct {
 func NewRouter(s *Services) http.Handler {
 	r := mux.NewRouter()
 
+	// Add Prometheus metrics middleware (must be first to capture all requests)
+	r.Use(middleware.PrometheusMiddleware)
+
 	// Add logging middleware
 	r.Use(middleware.LoggingMiddleware(s.Logger))
+
+	// =========================================================================
+	// Prometheus metrics endpoint (no auth, no rate limit)
+	// =========================================================================
+	r.Handle("/metrics", promhttp.Handler()).Methods("GET")
 
 	// Rate limit config for middleware
 	rlConfig := &middleware.RateLimitConfig{
