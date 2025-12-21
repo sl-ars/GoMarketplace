@@ -12,11 +12,18 @@ import (
 type Config struct {
 	HTTPServer          HTTPServerConfig `envPrefix:"HTTP_"`
 	DB                  *DBConfig        `envPrefix:"DB_"`
+	Redis               RedisConfig      `envPrefix:"REDIS_"`
 	JWTSecret           string           `env:"JWT_SECRET"`
 	StripeSecretKey     string           `env:"STRIPE_SECRET_KEY"`
 	StripeWebhookSecret string           `env:"STRIPE_WEBHOOK_SECRET"`
-	RabbitMQURL 		string			 `env:"RABBIT_MQ_URL"`
+	RabbitMQURL         string           `env:"RABBIT_MQ_URL"`
 	Logger              logger.Config    `envPrefix:"LOG_"`
+}
+
+type RedisConfig struct {
+	Addr     string `env:"ADDR" envDefault:"localhost:6379"`
+	Password string `env:"PASSWORD" envDefault:""`
+	DB       int    `env:"DB" envDefault:"0"`
 }
 
 type HTTPServerConfig struct {

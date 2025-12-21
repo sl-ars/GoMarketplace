@@ -2,22 +2,29 @@ package cart
 
 import (
 	"encoding/json"
-	"go-app-marketplace/internal/services"
-	"go-app-marketplace/pkg/httpx"
-	"go-app-marketplace/pkg/reqresp"
 	"net/http"
 	"strconv"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/gorilla/mux"
+
+	"go-app-marketplace/internal/services"
+	"go-app-marketplace/pkg/apperror"
+	"go-app-marketplace/pkg/httpx"
+	"go-app-marketplace/pkg/logger"
+	"go-app-marketplace/pkg/reqresp"
 )
 
 type CartHandler struct {
 	cartService *services.CartService
+	logger      *logger.Logger
 }
 
-func NewCartHandler(cartService *services.CartService) *CartHandler {
-	return &CartHandler{cartService: cartService}
+func NewCartHandler(cartService *services.CartService, log *logger.Logger) *CartHandler {
+	return &CartHandler{
+		cartService: cartService,
+		logger:      log,
+	}
 }
 
 var validate = validator.New()
@@ -37,20 +44,22 @@ func (h *CartHandler) AddItemToCart(w http.ResponseWriter, r *http.Request) {
 	var req reqresp.AddItemToCartRequest
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httpx.WriteError(w, http.StatusBadRequest, "Invalid request body", err.Error())
+		h.logger.WithError(err).Error("Failed to decode add to cart request")
+		httpx.WriteError(w, http.StatusBadRequest, apperror.ErrBadRequest, apperror.ErrInvalidJSON)
 		return
 	}
 
 	if err := validate.Struct(&req); err != nil {
-		httpx.WriteError(w, http.StatusBadRequest, "Validation failed", err.Error())
+		h.logger.WithError(err).Warn("Validation failed for add to cart request")
+		httpx.WriteError(w, http.StatusBadRequest, apperror.ErrValidationFailed, apperror.ErrBadRequest)
 		return
 	}
 
 	userID := r.Context().Value("user_id").(int64)
 
-	err := h.cartService.AddItem(r.Context(), userID, req.OfferID, req.Quantity)
-	if err != nil {
-		httpx.WriteError(w, http.StatusInternalServerError, "Failed to add item to cart", err.Error())
+	if err := h.cartService.AddItem(r.Context(), userID, req.OfferID, req.Quantity); err != nil {
+		h.logger.WithError(err).Error("Failed to add item to cart")
+		httpx.WriteError(w, http.StatusInternalServerError, apperror.ErrAddToCartFailed, apperror.ErrInternalServer)
 		return
 	}
 
@@ -70,7 +79,8 @@ func (h *CartHandler) GetCart(w http.ResponseWriter, r *http.Request) {
 
 	cartItems, err := h.cartService.GetCart(r.Context(), userID)
 	if err != nil {
-		httpx.WriteError(w, http.StatusInternalServerError, "Failed to retrieve cart", err.Error())
+		h.logger.WithError(err).Error("Failed to retrieve cart")
+		httpx.WriteError(w, http.StatusInternalServerError, apperror.ErrCartFetchFailed, apperror.ErrInternalServer)
 		return
 	}
 
@@ -99,15 +109,16 @@ func (h *CartHandler) RemoveItemFromCart(w http.ResponseWriter, r *http.Request)
 	offerIDStr := mux.Vars(r)["offer_id"]
 	offerID, err := strconv.ParseInt(offerIDStr, 10, 64)
 	if err != nil {
-		httpx.WriteError(w, http.StatusBadRequest, "Invalid offer ID", err.Error())
+		h.logger.WithError(err).Warn("Invalid offer ID format")
+		httpx.WriteError(w, http.StatusBadRequest, apperror.ErrBadRequest, apperror.ErrInvalidID)
 		return
 	}
 
 	userID := r.Context().Value("user_id").(int64)
 
-	err = h.cartService.RemoveItem(r.Context(), userID, offerID)
-	if err != nil {
-		httpx.WriteError(w, http.StatusInternalServerError, "Failed to remove item from cart", err.Error())
+	if err = h.cartService.RemoveItem(r.Context(), userID, offerID); err != nil {
+		h.logger.WithError(err).Error("Failed to remove item from cart")
+		httpx.WriteError(w, http.StatusInternalServerError, apperror.ErrRemoveFromCart, apperror.ErrInternalServer)
 		return
 	}
 
@@ -125,9 +136,9 @@ func (h *CartHandler) RemoveItemFromCart(w http.ResponseWriter, r *http.Request)
 func (h *CartHandler) ClearCart(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("user_id").(int64)
 
-	err := h.cartService.ClearCart(r.Context(), userID)
-	if err != nil {
-		httpx.WriteError(w, http.StatusInternalServerError, "Failed to clear cart", err.Error())
+	if err := h.cartService.ClearCart(r.Context(), userID); err != nil {
+		h.logger.WithError(err).Error("Failed to clear cart")
+		httpx.WriteError(w, http.StatusInternalServerError, apperror.ErrClearCartFailed, apperror.ErrInternalServer)
 		return
 	}
 

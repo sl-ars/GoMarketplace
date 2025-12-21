@@ -2,23 +2,28 @@ package order
 
 import (
 	"encoding/json"
-	"go-app-marketplace/internal/services"
-	"go-app-marketplace/pkg/domain"
-	"go-app-marketplace/pkg/httpx"
-	"go-app-marketplace/pkg/reqresp"
 	"net/http"
 	"strconv"
 
 	"github.com/gorilla/mux"
+
+	"go-app-marketplace/internal/services"
+	"go-app-marketplace/pkg/apperror"
+	"go-app-marketplace/pkg/domain"
+	"go-app-marketplace/pkg/httpx"
+	"go-app-marketplace/pkg/logger"
+	"go-app-marketplace/pkg/reqresp"
 )
 
 type OrderHandler struct {
 	orderService *services.OrderService
+	logger       *logger.Logger
 }
 
-func NewOrderHandler(orderService *services.OrderService) *OrderHandler {
+func NewOrderHandler(orderService *services.OrderService, log *logger.Logger) *OrderHandler {
 	return &OrderHandler{
 		orderService: orderService,
+		logger:       log,
 	}
 }
 
@@ -37,7 +42,8 @@ func (h *OrderHandler) Checkout(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := h.orderService.Checkout(r.Context(), userID)
 	if err != nil {
-		httpx.WriteError(w, http.StatusInternalServerError, "Failed to checkout", err.Error())
+		h.logger.WithError(err).Error("Checkout failed")
+		httpx.WriteError(w, http.StatusInternalServerError, apperror.ErrCheckoutFailed, apperror.ErrInternalServer)
 		return
 	}
 
@@ -62,13 +68,14 @@ func (h *OrderHandler) CancelOrderItem(w http.ResponseWriter, r *http.Request) {
 	idStr := mux.Vars(r)["id"]
 	itemID, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		httpx.WriteError(w, http.StatusBadRequest, "Invalid ID", err.Error())
+		h.logger.WithError(err).Warn("Invalid order item ID format")
+		httpx.WriteError(w, http.StatusBadRequest, apperror.ErrBadRequest, apperror.ErrInvalidID)
 		return
 	}
 
-	err = h.orderService.CancelOrderItem(r.Context(), userID, itemID)
-	if err != nil {
-		httpx.WriteError(w, http.StatusInternalServerError, "Failed to cancel order item", err.Error())
+	if err = h.orderService.CancelOrderItem(r.Context(), userID, itemID); err != nil {
+		h.logger.WithError(err).Error("Failed to cancel order item")
+		httpx.WriteError(w, http.StatusInternalServerError, apperror.ErrOrderCancelFailed, apperror.ErrInternalServer)
 		return
 	}
 
@@ -89,7 +96,8 @@ func (h *OrderHandler) ListOrders(w http.ResponseWriter, r *http.Request) {
 
 	orders, err := h.orderService.ListOrders(r.Context(), userID)
 	if err != nil {
-		httpx.WriteError(w, http.StatusInternalServerError, "Failed to list orders", err.Error())
+		h.logger.WithError(err).Error("Failed to list orders")
+		httpx.WriteError(w, http.StatusInternalServerError, apperror.ErrOrderFetchFailed, apperror.ErrInternalServer)
 		return
 	}
 
@@ -139,13 +147,15 @@ func (h *OrderHandler) GetOrder(w http.ResponseWriter, r *http.Request) {
 	idStr := mux.Vars(r)["id"]
 	orderID, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		httpx.WriteError(w, http.StatusBadRequest, "Invalid order ID", err.Error())
+		h.logger.WithError(err).Warn("Invalid order ID format")
+		httpx.WriteError(w, http.StatusBadRequest, apperror.ErrBadRequest, apperror.ErrInvalidID)
 		return
 	}
 
 	order, err := h.orderService.GetOrderByID(r.Context(), userID, orderID)
 	if err != nil {
-		httpx.WriteError(w, http.StatusNotFound, "Order not found or access denied", err.Error())
+		h.logger.WithError(err).Warn("Order not found or access denied")
+		httpx.WriteError(w, http.StatusNotFound, apperror.ErrOrderNotFound, apperror.ErrOrderAccessDenied)
 		return
 	}
 
@@ -170,13 +180,15 @@ func (h *OrderHandler) CheckoutExistingOrder(w http.ResponseWriter, r *http.Requ
 	idStr := mux.Vars(r)["id"]
 	orderID, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		httpx.WriteError(w, http.StatusBadRequest, "Invalid order ID", err.Error())
+		h.logger.WithError(err).Warn("Invalid order ID format")
+		httpx.WriteError(w, http.StatusBadRequest, apperror.ErrBadRequest, apperror.ErrInvalidID)
 		return
 	}
 
 	resp, err := h.orderService.CheckoutExistingOrder(r.Context(), userID, orderID)
 	if err != nil {
-		httpx.WriteError(w, http.StatusInternalServerError, "Failed to create checkout session", err.Error())
+		h.logger.WithError(err).Error("Failed to create checkout session")
+		httpx.WriteError(w, http.StatusInternalServerError, apperror.ErrCheckoutFailed, apperror.ErrInternalServer)
 		return
 	}
 
@@ -198,26 +210,32 @@ func (h *OrderHandler) CheckoutExistingOrder(w http.ResponseWriter, r *http.Requ
 func (h *OrderHandler) UpdateOrderItemStatus(w http.ResponseWriter, r *http.Request) {
 	sellerID := r.Context().Value("user_id").(int64)
 	idStr := mux.Vars(r)["id"]
-	itemID, _ := strconv.ParseInt(idStr, 10, 64)
+	itemID, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		h.logger.WithError(err).Warn("Invalid order item ID format")
+		httpx.WriteError(w, http.StatusBadRequest, apperror.ErrBadRequest, apperror.ErrInvalidID)
+		return
+	}
 
 	var req reqresp.UpdateOrderItemStatusRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httpx.WriteError(w, http.StatusBadRequest, "Invalid body", err.Error())
+		h.logger.WithError(err).Error("Failed to decode status update request")
+		httpx.WriteError(w, http.StatusBadRequest, apperror.ErrBadRequest, apperror.ErrInvalidJSON)
 		return
 	}
 	if req.Status != "processing" && req.Status != "delivered" {
-		httpx.WriteError(w, http.StatusBadRequest, "Invalid status", "allowed: processing, delivered")
+		httpx.WriteError(w, http.StatusBadRequest, apperror.ErrInvalidOrderStatus, "Allowed values: processing, delivered")
 		return
 	}
 
-	err := h.orderService.SellerUpdateOrderItemStatus(
+	if err := h.orderService.SellerUpdateOrderItemStatus(
 		r.Context(),
 		sellerID,
 		itemID,
 		domain.OrderItemStatus(req.Status),
-	)
-	if err != nil {
-		httpx.WriteError(w, http.StatusBadRequest, "Update failed", err.Error())
+	); err != nil {
+		h.logger.WithError(err).Error("Failed to update order item status")
+		httpx.WriteError(w, http.StatusBadRequest, apperror.ErrOrderFetchFailed, apperror.ErrInternalServer)
 		return
 	}
 
@@ -236,7 +254,8 @@ func (h *OrderHandler) ListSellerOrderItems(w http.ResponseWriter, r *http.Reque
 
 	items, err := h.orderService.ListSellerOrderItems(r.Context(), sellerID)
 	if err != nil {
-		httpx.WriteError(w, http.StatusInternalServerError, "Failed to fetch seller orders", err.Error())
+		h.logger.WithError(err).Error("Failed to fetch seller orders")
+		httpx.WriteError(w, http.StatusInternalServerError, apperror.ErrOrderFetchFailed, apperror.ErrInternalServer)
 		return
 	}
 	httpx.WriteSuccess(w, http.StatusOK, "Orders fetched successfully", items)

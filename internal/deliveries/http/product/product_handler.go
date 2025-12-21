@@ -2,24 +2,29 @@ package product
 
 import (
 	"encoding/json"
-	"go-app-marketplace/internal/services"
-	"go-app-marketplace/pkg/httpx"
-	"go-app-marketplace/pkg/reqresp"
 	"net/http"
 	"strconv"
 
 	"github.com/gorilla/mux"
+
+	"go-app-marketplace/internal/services"
+	"go-app-marketplace/pkg/apperror"
+	"go-app-marketplace/pkg/httpx"
+	"go-app-marketplace/pkg/logger"
+	"go-app-marketplace/pkg/reqresp"
 )
 
 type ProductHandler struct {
 	productService *services.ProductService
 	offerService   *services.OfferService
+	logger         *logger.Logger
 }
 
-func NewProductHandler(productService *services.ProductService, offerService *services.OfferService) *ProductHandler {
+func NewProductHandler(productService *services.ProductService, offerService *services.OfferService, log *logger.Logger) *ProductHandler {
 	return &ProductHandler{
 		productService: productService,
 		offerService:   offerService,
+		logger:         log,
 	}
 }
 
@@ -34,13 +39,15 @@ func NewProductHandler(productService *services.ProductService, offerService *se
 func (h *ProductHandler) CreateProduct(w http.ResponseWriter, r *http.Request) {
 	var req reqresp.ProductCreateRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httpx.WriteError(w, http.StatusBadRequest, "Invalid request", err.Error())
+		h.logger.WithError(err).Error("Failed to decode product create request")
+		httpx.WriteError(w, http.StatusBadRequest, apperror.ErrBadRequest, apperror.ErrInvalidJSON)
 		return
 	}
 
 	id, err := h.productService.CreateProduct(r.Context(), req.Name, req.Description)
 	if err != nil {
-		httpx.WriteError(w, http.StatusInternalServerError, "Failed to create product", err.Error())
+		h.logger.WithError(err).Error("Failed to create product")
+		httpx.WriteError(w, http.StatusInternalServerError, apperror.ErrProductCreateFailed, apperror.ErrInternalServer)
 		return
 	}
 
@@ -57,19 +64,22 @@ func (h *ProductHandler) GetProduct(w http.ResponseWriter, r *http.Request) {
 	idStr := mux.Vars(r)["id"]
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		httpx.WriteError(w, http.StatusBadRequest, "Invalid product ID", err.Error())
+		h.logger.WithError(err).Warn("Invalid product ID format")
+		httpx.WriteError(w, http.StatusBadRequest, apperror.ErrBadRequest, apperror.ErrInvalidID)
 		return
 	}
 
 	product, err := h.productService.GetProductByID(r.Context(), id)
 	if err != nil {
-		httpx.WriteError(w, http.StatusInternalServerError, "Failed to fetch product", err.Error())
+		h.logger.WithError(err).Error("Failed to fetch product")
+		httpx.WriteError(w, http.StatusNotFound, apperror.ErrProductNotFound, apperror.ErrNotFound)
 		return
 	}
 
 	offers, err := h.offerService.ListOffersByProduct(r.Context(), id)
 	if err != nil {
-		httpx.WriteError(w, http.StatusInternalServerError, "Failed to fetch offers", err.Error())
+		h.logger.WithError(err).Error("Failed to fetch offers for product")
+		httpx.WriteError(w, http.StatusInternalServerError, apperror.ErrOfferFetchFailed, apperror.ErrInternalServer)
 		return
 	}
 
@@ -120,7 +130,8 @@ func (h *ProductHandler) ListProducts(w http.ResponseWriter, r *http.Request) {
 
 	products, total, err := h.productService.ListProducts(r.Context(), page, pageSize)
 	if err != nil {
-		httpx.WriteError(w, http.StatusInternalServerError, "Failed to fetch products", err.Error())
+		h.logger.WithError(err).Error("Failed to fetch products")
+		httpx.WriteError(w, http.StatusInternalServerError, apperror.ErrProductFetchFailed, apperror.ErrInternalServer)
 		return
 	}
 
