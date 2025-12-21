@@ -25,7 +25,7 @@ services:
     command: redis-server --appendonly yes
 
   rabbitmq:
-    image: rabbitmq:3-management
+    image: zhanibek05/marketplace-rabbitmq:3.13.7-delayed
     env_file:
       - ./configs/.env
     ports:
