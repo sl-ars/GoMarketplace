@@ -103,7 +103,8 @@ func Run(configFiles ...string) {
 		appLogger.Info("Email publisher initialized (via RabbitMQ)")
 	} else {
 		appLogger.Warn("Email sending is disabled - set EMAIL_ENABLED=true to enable")
-		
+	}
+
 	// Offer publisher: uses delayed-message exchange (requires rabbitmq_delayed_message_exchange plugin)
 	offerPublisher, err := messagebus.NewRabbitMQOfferPublisher(
 		rmqCh,

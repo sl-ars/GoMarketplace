@@ -1020,6 +1020,34 @@ paths:
       summary: Get product with offers
       tags:
       - products
+  /api/products/search:
+    get:
+      parameters:
+      - description: Search query
+        in: query
+        name: q
+        required: true
+        type: string
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Number of items per page
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+      summary: Search products
+      tags:
+      - products
   /api/refunds/{item_id}:
     post:
       consumes:
