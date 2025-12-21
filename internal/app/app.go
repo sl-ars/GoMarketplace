@@ -1,16 +1,18 @@
 package app
 
 import (
+	"log"
+
 	"go-app-marketplace/internal/app/config"
 	"go-app-marketplace/internal/app/connections"
 	"go-app-marketplace/internal/app/start"
 	"go-app-marketplace/internal/deliveries/http"
+	"go-app-marketplace/internal/messagebus"
+	"go-app-marketplace/internal/redisdb"
 	"go-app-marketplace/internal/repositories"
 	"go-app-marketplace/internal/services"
 	"go-app-marketplace/internal/usecases"
-	"go-app-marketplace/internal/messagebus"
 	"go-app-marketplace/pkg/logger"
-	"log"
 )
 
 func Run(configFiles ...string) {
@@ -24,18 +26,19 @@ func Run(configFiles ...string) {
 	appLogger := logger.New(cfg.Logger)
 	appLogger.Info("Starting application")
 
-	// Initialize DB and external connections
+	// Initialize DB and Redis connections
 	conns, err := connections.NewConnections(cfg)
 	if err != nil {
 		appLogger.WithError(err).Fatal("Failed to initialize connections")
 	}
 	defer conns.Close()
-	appLogger.Info("Database connection established")
 
-		// --- RabbitMQ connection ---
-	rmqConn, rmqCh, err := connections.NewRabbitMQConn(connections.RabbitMQConfig{
-		URL: cfg.RabbitMQURL,
-	})
+	// Set Redis client for cache utilities
+	redisdb.SetClient(conns.Redis)
+	appLogger.Info("Database and Redis connections established")
+
+	// --- RabbitMQ connection ---
+	rmqConn, rmqCh, err := connections.NewRabbitMQConn(cfg.RabbitMQURL)
 	if err != nil {
 		appLogger.WithError(err).Fatal("failed to connect to RabbitMQ")
 	}
@@ -48,14 +51,19 @@ func Run(configFiles ...string) {
 		"orders.created", // routing key
 	)
 	if err != nil {
-		appLogger.WithError(err).Fatal("failed to create order publishe")
-
+		appLogger.WithError(err).Fatal("failed to create order publisher")
 	}
 
 	// Dependency injection
 	userRepo := repositories.NewUserPostgresRepo(conns.DB, appLogger)
+
+	// Auth service (handles registration, login, token refresh/verify)
+	authUC := usecases.NewAuthUseCase(userRepo)
+	authService := services.NewAuthService(authUC, cfg.JWTSecret, appLogger)
+
+	// User service (handles user profile operations)
 	userUC := usecases.NewUserUseCase(userRepo)
-	userService := services.NewUserService(userUC, cfg.JWTSecret, appLogger)
+	userService := services.NewUserService(userUC, appLogger)
 
 	productRepo := repositories.NewProductRepository(conns.DB)
 	productUC := usecases.NewProductUseCase(productRepo)
@@ -79,12 +87,14 @@ func Run(configFiles ...string) {
 	// Set the payment service on the order service to avoid circular dependency
 	orderService.SetPaymentService(paymentService)
 
-	// refund
+	// Refund service
 	refundRepo := repositories.NewRefundRepository(conns.DB)
 	refundUC := usecases.NewRefundUsecase(refundRepo, orderRepo)
 	refundService := services.NewRefundService(refundUC)
+
 	// Wrap services
 	svc := &http.Services{
+		Auth:    authService,
 		User:    userService,
 		Cart:    cartService,
 		Product: productService,
@@ -92,7 +102,6 @@ func Run(configFiles ...string) {
 		Order:   orderService,
 		Payment: paymentService,
 		Refund:  refundService,
-		JWTKey:  []byte(cfg.JWTSecret),
 		Logger:  appLogger,
 	}
 

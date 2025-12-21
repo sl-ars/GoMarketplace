@@ -2,21 +2,29 @@ package offer
 
 import (
 	"encoding/json"
-	"github.com/gorilla/mux"
-	"go-app-marketplace/internal/services"
-	"go-app-marketplace/pkg/httpx"
-	"go-app-marketplace/pkg/reqresp"
 	"net/http"
 	"strconv"
 	"time"
+
+	"github.com/gorilla/mux"
+
+	"go-app-marketplace/internal/services"
+	"go-app-marketplace/pkg/apperror"
+	"go-app-marketplace/pkg/httpx"
+	"go-app-marketplace/pkg/logger"
+	"go-app-marketplace/pkg/reqresp"
 )
 
 type OfferHandler struct {
 	offerService *services.OfferService
+	logger       *logger.Logger
 }
 
-func NewOfferHandler(offerService *services.OfferService) *OfferHandler {
-	return &OfferHandler{offerService: offerService}
+func NewOfferHandler(offerService *services.OfferService, log *logger.Logger) *OfferHandler {
+	return &OfferHandler{
+		offerService: offerService,
+		logger:       log,
+	}
 }
 
 // @Summary Create offer
@@ -34,19 +42,21 @@ func NewOfferHandler(offerService *services.OfferService) *OfferHandler {
 func (h *OfferHandler) CreateOffer(w http.ResponseWriter, r *http.Request) {
 	var req reqresp.OfferCreateRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httpx.WriteError(w, http.StatusBadRequest, "Invalid request body", err.Error())
+		h.logger.WithError(err).Error("Failed to decode offer create request")
+		httpx.WriteError(w, http.StatusBadRequest, apperror.ErrBadRequest, apperror.ErrInvalidJSON)
 		return
 	}
 
 	sellerID, ok := r.Context().Value("user_id").(int64)
 	if !ok {
-		httpx.WriteError(w, http.StatusUnauthorized, "Unauthorized", "Invalid user context")
+		httpx.WriteError(w, http.StatusUnauthorized, apperror.ErrUnauthorized, apperror.ErrMissingToken)
 		return
 	}
 
 	id, err := h.offerService.CreateOffer(r.Context(), req.ProductID, sellerID, req.Price, req.Stock, req.IsAvailable)
 	if err != nil {
-		httpx.WriteError(w, http.StatusInternalServerError, "Failed to create offer", err.Error())
+		h.logger.WithError(err).Error("Failed to create offer")
+		httpx.WriteError(w, http.StatusInternalServerError, apperror.ErrOfferCreateFailed, apperror.ErrInternalServer)
 		return
 	}
 
@@ -69,13 +79,15 @@ func (h *OfferHandler) GetOffer(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, err := strconv.ParseInt(vars["id"], 10, 64)
 	if err != nil {
-		httpx.WriteError(w, http.StatusBadRequest, "Invalid offer ID", err.Error())
+		h.logger.WithError(err).Warn("Invalid offer ID format")
+		httpx.WriteError(w, http.StatusBadRequest, apperror.ErrBadRequest, apperror.ErrInvalidID)
 		return
 	}
 
 	offer, err := h.offerService.GetOfferByID(r.Context(), id)
 	if err != nil {
-		httpx.WriteError(w, http.StatusNotFound, "Offer not found", err.Error())
+		h.logger.WithError(err).Warn("Offer not found")
+		httpx.WriteError(w, http.StatusNotFound, apperror.ErrOfferNotFound, apperror.ErrNotFound)
 		return
 	}
 
@@ -112,37 +124,40 @@ func (h *OfferHandler) UpdateOffer(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, err := strconv.ParseInt(vars["id"], 10, 64)
 	if err != nil {
-		httpx.WriteError(w, http.StatusBadRequest, "Invalid offer ID", err.Error())
+		h.logger.WithError(err).Warn("Invalid offer ID format")
+		httpx.WriteError(w, http.StatusBadRequest, apperror.ErrBadRequest, apperror.ErrInvalidID)
 		return
 	}
 
 	var req reqresp.OfferUpdateRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httpx.WriteError(w, http.StatusBadRequest, "Invalid request body", err.Error())
+		h.logger.WithError(err).Error("Failed to decode offer update request")
+		httpx.WriteError(w, http.StatusBadRequest, apperror.ErrBadRequest, apperror.ErrInvalidJSON)
 		return
 	}
 
 	sellerID, ok := r.Context().Value("user_id").(int64)
 	if !ok {
-		httpx.WriteError(w, http.StatusUnauthorized, "Unauthorized", "Invalid user context")
+		httpx.WriteError(w, http.StatusUnauthorized, apperror.ErrUnauthorized, apperror.ErrMissingToken)
 		return
 	}
 
 	// First verify this offer belongs to the seller
 	offer, err := h.offerService.GetOfferByID(r.Context(), id)
 	if err != nil {
-		httpx.WriteError(w, http.StatusNotFound, "Offer not found", err.Error())
+		h.logger.WithError(err).Warn("Offer not found")
+		httpx.WriteError(w, http.StatusNotFound, apperror.ErrOfferNotFound, apperror.ErrNotFound)
 		return
 	}
 
 	if offer.SellerID != sellerID {
-		httpx.WriteError(w, http.StatusForbidden, "Forbidden", "You do not have permission to update this offer")
+		httpx.WriteError(w, http.StatusForbidden, apperror.ErrForbidden, apperror.ErrNotOfferOwner)
 		return
 	}
 
-	err = h.offerService.UpdateOffer(r.Context(), id, sellerID, req.Price, req.Stock, req.IsAvailable)
-	if err != nil {
-		httpx.WriteError(w, http.StatusInternalServerError, "Failed to update offer", err.Error())
+	if err = h.offerService.UpdateOffer(r.Context(), id, sellerID, req.Price, req.Stock, req.IsAvailable); err != nil {
+		h.logger.WithError(err).Error("Failed to update offer")
+		httpx.WriteError(w, http.StatusInternalServerError, apperror.ErrOfferUpdateFailed, apperror.ErrInternalServer)
 		return
 	}
 
@@ -166,31 +181,33 @@ func (h *OfferHandler) DeleteOffer(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, err := strconv.ParseInt(vars["id"], 10, 64)
 	if err != nil {
-		httpx.WriteError(w, http.StatusBadRequest, "Invalid offer ID", err.Error())
+		h.logger.WithError(err).Warn("Invalid offer ID format")
+		httpx.WriteError(w, http.StatusBadRequest, apperror.ErrBadRequest, apperror.ErrInvalidID)
 		return
 	}
 
 	sellerID, ok := r.Context().Value("user_id").(int64)
 	if !ok {
-		httpx.WriteError(w, http.StatusUnauthorized, "Unauthorized", "Invalid user context")
+		httpx.WriteError(w, http.StatusUnauthorized, apperror.ErrUnauthorized, apperror.ErrMissingToken)
 		return
 	}
 
 	// First verify this offer belongs to the seller
 	offer, err := h.offerService.GetOfferByID(r.Context(), id)
 	if err != nil {
-		httpx.WriteError(w, http.StatusNotFound, "Offer not found", err.Error())
+		h.logger.WithError(err).Warn("Offer not found")
+		httpx.WriteError(w, http.StatusNotFound, apperror.ErrOfferNotFound, apperror.ErrNotFound)
 		return
 	}
 
 	if offer.SellerID != sellerID {
-		httpx.WriteError(w, http.StatusForbidden, "Forbidden", "You do not have permission to delete this offer")
+		httpx.WriteError(w, http.StatusForbidden, apperror.ErrForbidden, apperror.ErrNotOfferOwner)
 		return
 	}
 
-	err = h.offerService.DeleteOffer(r.Context(), id, sellerID)
-	if err != nil {
-		httpx.WriteError(w, http.StatusInternalServerError, "Failed to delete offer", err.Error())
+	if err = h.offerService.DeleteOffer(r.Context(), id, sellerID); err != nil {
+		h.logger.WithError(err).Error("Failed to delete offer")
+		httpx.WriteError(w, http.StatusInternalServerError, apperror.ErrOfferDeleteFailed, apperror.ErrInternalServer)
 		return
 	}
 
@@ -209,13 +226,14 @@ func (h *OfferHandler) DeleteOffer(w http.ResponseWriter, r *http.Request) {
 func (h *OfferHandler) ListMyOffers(w http.ResponseWriter, r *http.Request) {
 	sellerID, ok := r.Context().Value("user_id").(int64)
 	if !ok {
-		httpx.WriteError(w, http.StatusUnauthorized, "Unauthorized", "Invalid user context")
+		httpx.WriteError(w, http.StatusUnauthorized, apperror.ErrUnauthorized, apperror.ErrMissingToken)
 		return
 	}
 
 	offers, err := h.offerService.ListOffersBySeller(r.Context(), sellerID)
 	if err != nil {
-		httpx.WriteError(w, http.StatusInternalServerError, "Failed to fetch offers", err.Error())
+		h.logger.WithError(err).Error("Failed to fetch seller offers")
+		httpx.WriteError(w, http.StatusInternalServerError, apperror.ErrOfferFetchFailed, apperror.ErrInternalServer)
 		return
 	}
 

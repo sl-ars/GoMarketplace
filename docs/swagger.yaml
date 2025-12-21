@@ -31,7 +31,7 @@ definitions:
         type: string
         x-order: "2"
     type: object
-  reqresp.LoginUserRequest:
+  reqresp.LoginRequest:
     properties:
       email:
         type: string
@@ -184,6 +184,13 @@ definitions:
     required:
     - name
     type: object
+  reqresp.RefreshRequest:
+    properties:
+      refresh_token:
+        type: string
+    required:
+    - refresh_token
+    type: object
   reqresp.RefundRequestBody:
     properties:
       reason:
@@ -191,7 +198,7 @@ definitions:
     required:
     - reason
     type: object
-  reqresp.RegisterUserRequest:
+  reqresp.RegisterRequest:
     properties:
       email:
         type: string
@@ -262,6 +269,111 @@ paths:
       summary: Create product
       tags:
       - products
+  /api/auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticates user and returns JWT tokens
+      parameters:
+      - description: Login credentials
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/reqresp.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+      summary: Login user
+      tags:
+      - auth
+  /api/auth/refresh:
+    post:
+      consumes:
+      - application/json
+      description: Refreshes JWT access token using refresh token
+      parameters:
+      - description: Refresh token
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/reqresp.RefreshRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+      summary: Refresh access token
+      tags:
+      - auth
+  /api/auth/register:
+    post:
+      consumes:
+      - application/json
+      description: Registers a new user with username, email, and password
+      parameters:
+      - description: User registration input
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/reqresp.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+      summary: Register new user
+      tags:
+      - auth
+  /api/auth/verify:
+    get:
+      description: Verifies the JWT token in Authorization header
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+      security:
+      - BearerAuth: []
+      summary: Verify JWT access token
+      tags:
+      - auth
   /api/cart:
     get:
       produces:
@@ -357,58 +469,6 @@ paths:
       summary: Remove item from cart
       tags:
       - Cart
-  /api/login:
-    post:
-      consumes:
-      - application/json
-      description: Authenticates user and returns JWT token
-      parameters:
-      - description: Login credentials
-        in: body
-        name: input
-        required: true
-        schema:
-          $ref: '#/definitions/reqresp.LoginUserRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/reqresp.StandardResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/reqresp.StandardResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/reqresp.StandardResponse'
-      summary: Login user
-      tags:
-      - users
-  /api/me:
-    get:
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/reqresp.StandardResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/reqresp.StandardResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/reqresp.StandardResponse'
-      security:
-      - BearerAuth: []
-      summary: Get current user
-      tags:
-      - users
   /api/offers:
     post:
       consumes:
@@ -814,23 +874,6 @@ paths:
       summary: Get product with offers
       tags:
       - products
-  /api/refresh:
-    post:
-      description: Refreshes JWT access token using refresh_token cookie
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/reqresp.StandardResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/reqresp.StandardResponse'
-      summary: Refresh access token
-      tags:
-      - users
   /api/refunds/{item_id}:
     post:
       consumes:
@@ -902,36 +945,6 @@ paths:
       summary: Approve or reject a refund
       tags:
       - refunds
-  /api/register:
-    post:
-      consumes:
-      - application/json
-      description: Registers a new user with username, email, and password
-      parameters:
-      - description: User registration input
-        in: body
-        name: input
-        required: true
-        schema:
-          $ref: '#/definitions/reqresp.RegisterUserRequest'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/reqresp.StandardResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/reqresp.StandardResponse'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/reqresp.StandardResponse'
-      summary: Register new user
-      tags:
-      - users
   /api/seller/orders:
     get:
       produces:
@@ -999,9 +1012,8 @@ paths:
       summary: Seller updates order-item status
       tags:
       - orders
-  /api/verify:
+  /api/users/me:
     get:
-      description: Verifies the JWT token in Authorization header
       produces:
       - application/json
       responses:
@@ -1013,9 +1025,13 @@ paths:
           description: Unauthorized
           schema:
             $ref: '#/definitions/reqresp.StandardResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
       security:
       - BearerAuth: []
-      summary: Verify JWT access token
+      summary: Get current user
       tags:
       - users
   /api/webhook/stripe:

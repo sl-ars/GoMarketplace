@@ -6,12 +6,8 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-type RabbitMQConfig struct {
-	URL string
-}
-
-func NewRabbitMQConn(cfg RabbitMQConfig) (*amqp.Connection, *amqp.Channel, error) {
-	conn, err := amqp.Dial(cfg.URL)
+func NewRabbitMQConn(url string) (*amqp.Connection, *amqp.Channel, error) {
+	conn, err := amqp.Dial(url)
 	if err != nil {
 		return nil, nil, err
 	}
