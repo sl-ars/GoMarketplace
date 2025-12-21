@@ -159,3 +159,56 @@ func (h *ProductHandler) ListProducts(w http.ResponseWriter, r *http.Request) {
 
 	httpx.WriteSuccess(w, http.StatusOK, "Products fetched successfully", response)
 }
+
+// @Summary Search products
+// @Tags products
+// @Produce json
+// @Param q query string true "Search query"
+// @Param page query int false "Page number" default(1)
+// @Param page_size query int false "Number of items per page" default(10)
+// @Success 200 {object} reqresp.StandardResponse
+// @Router /api/products/search [get]
+func (h *ProductHandler) SearchProducts(w http.ResponseWriter, r *http.Request) {
+	query := r.URL.Query().Get("q")
+	if query == "" {
+		httpx.WriteError(w, http.StatusBadRequest, apperror.ErrBadRequest, "search query is required")
+		return
+	}
+
+	page := 1
+	pageSize := 10
+
+	if pageStr := r.URL.Query().Get("page"); pageStr != "" {
+		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
+			page = p
+		}
+	}
+
+	if pageSizeStr := r.URL.Query().Get("page_size"); pageSizeStr != "" {
+		if ps, err := strconv.Atoi(pageSizeStr); err == nil && ps > 0 && ps <= 100 {
+			pageSize = ps
+		}
+	}
+
+	products, total, err := h.productService.SearchProducts(r.Context(), query, page, pageSize)
+	if err != nil {
+		h.logger.WithError(err).Error("Failed to search products")
+		httpx.WriteError(w, http.StatusInternalServerError, apperror.ErrInternalServer, "search failed")
+		return
+	}
+
+	totalPages := total / pageSize
+	if total%pageSize > 0 {
+		totalPages++
+	}
+
+	response := map[string]interface{}{
+		"items":       products,
+		"total":       total,
+		"page":        page,
+		"page_size":   pageSize,
+		"total_pages": totalPages,
+	}
+
+	httpx.WriteSuccess(w, http.StatusOK, "Products found", response)
+}

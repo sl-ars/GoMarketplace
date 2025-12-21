@@ -13,6 +13,7 @@ type Config struct {
 	HTTPServer          HTTPServerConfig `envPrefix:"HTTP_"`
 	DB                  *DBConfig        `envPrefix:"DB_"`
 	Redis               RedisConfig      `envPrefix:"REDIS_"`
+	Elasticsearch       ElasticsearchConfig `envPrefix:"ES_"`
 	RateLimit           RateLimitConfig  `envPrefix:"RATELIMIT_"`
 	Email               EmailConfig      `envPrefix:"EMAIL_"`
 	Auth                AuthConfig       `envPrefix:"AUTH_"`
@@ -54,6 +55,13 @@ type RedisConfig struct {
 	Addr     string `env:"ADDR" envDefault:"localhost:6379"`
 	Password string `env:"PASSWORD" envDefault:""`
 	DB       int    `env:"DB" envDefault:"0"`
+}
+
+type ElasticsearchConfig struct {
+	Enabled   bool     `env:"ENABLED" envDefault:"true"`
+	Addresses []string `env:"ADDRESSES" envDefault:"http://localhost:9200" envSeparator:","`
+	Username  string   `env:"USERNAME" envDefault:""`
+	Password  string   `env:"PASSWORD" envDefault:""`
 }
 
 type HTTPServerConfig struct {

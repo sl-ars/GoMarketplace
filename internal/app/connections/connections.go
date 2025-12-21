@@ -3,10 +3,11 @@ package connections
 import (
 	"fmt"
 
+	"go-app-marketplace/internal/app/config"
+
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 	"github.com/redis/go-redis/v9"
-	"go-app-marketplace/internal/app/config"
 )
 
 type Connections struct {
@@ -18,6 +19,12 @@ func NewConnections(cfg *config.Config) (*Connections, error) {
 	db, err := sqlx.Connect("postgres", cfg.DB.DSN)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
+	}
+
+	// Run database migrations
+	if err := RunMigrations(cfg.DB.DSN); err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("failed to run migrations: %w", err)
 	}
 
 	redisClient, err := NewRedisClient(cfg.Redis)
