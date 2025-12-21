@@ -1,5 +1,22 @@
 basePath: /
 definitions:
+  admin.BanUserRequest:
+    properties:
+      reason:
+        type: string
+    type: object
+  admin.ProductRequest:
+    properties:
+      description:
+        type: string
+      name:
+        type: string
+    type: object
+  admin.UpdateRoleRequest:
+    properties:
+      role:
+        type: string
+    type: object
   reqresp.AddItemToCartRequest:
     properties:
       offer_id:
@@ -182,15 +199,6 @@ definitions:
       user_id:
         type: integer
     type: object
-  reqresp.ProductCreateRequest:
-    properties:
-      description:
-        type: string
-      name:
-        type: string
-    required:
-    - name
-    type: object
   reqresp.RefreshRequest:
     properties:
       refresh_token:
@@ -283,7 +291,43 @@ info:
   title: Go Marketplace API
   version: "1.0"
 paths:
+  /api/admin/dashboard:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+      security:
+      - BearerAuth: []
+      summary: Get admin dashboard statistics
+      tags:
+      - admin
   /api/admin/products:
+    get:
+      parameters:
+      - description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Page size
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+      security:
+      - BearerAuth: []
+      summary: List all products
+      tags:
+      - admin
     post:
       consumes:
       - application/json
@@ -293,7 +337,7 @@ paths:
         name: input
         required: true
         schema:
-          $ref: '#/definitions/reqresp.ProductCreateRequest'
+          $ref: '#/definitions/admin.ProductRequest'
       produces:
       - application/json
       responses:
@@ -303,9 +347,235 @@ paths:
             $ref: '#/definitions/reqresp.StandardResponse'
       security:
       - BearerAuth: []
-      summary: Create product
+      summary: Create a product
       tags:
-      - products
+      - admin
+  /api/admin/products/{id}:
+    delete:
+      parameters:
+      - description: Product ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete a product
+      tags:
+      - admin
+    get:
+      parameters:
+      - description: Product ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+      security:
+      - BearerAuth: []
+      summary: Get product by ID
+      tags:
+      - admin
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Product ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Product data
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/admin.ProductRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+      security:
+      - BearerAuth: []
+      summary: Update a product
+      tags:
+      - admin
+  /api/admin/stats/users:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+      security:
+      - BearerAuth: []
+      summary: Get user statistics
+      tags:
+      - admin
+  /api/admin/users:
+    get:
+      parameters:
+      - description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Page size
+        in: query
+        name: page_size
+        type: integer
+      - description: Filter by role (admin, seller, customer)
+        in: query
+        name: role
+        type: string
+      - description: Filter by ban status (true, false)
+        in: query
+        name: is_banned
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+      security:
+      - BearerAuth: []
+      summary: List all users
+      tags:
+      - admin
+  /api/admin/users/{id}:
+    delete:
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete a user
+      tags:
+      - admin
+    get:
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+      security:
+      - BearerAuth: []
+      summary: Get user by ID
+      tags:
+      - admin
+  /api/admin/users/{id}/ban:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Ban reason
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/admin.BanUserRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+      security:
+      - BearerAuth: []
+      summary: Ban a user
+      tags:
+      - admin
+  /api/admin/users/{id}/role:
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: New role
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/admin.UpdateRoleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+      security:
+      - BearerAuth: []
+      summary: Update user role
+      tags:
+      - admin
+  /api/admin/users/{id}/unban:
+    post:
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+      security:
+      - BearerAuth: []
+      summary: Unban a user
+      tags:
+      - admin
   /api/auth/forgot-password:
     post:
       consumes:
@@ -1022,6 +1292,8 @@ paths:
       - products
   /api/products/search:
     get:
+      description: Search for products using full-text search. Returns 404 if no products
+        found.
       parameters:
       - description: Search query
         in: query
@@ -1043,6 +1315,10 @@ paths:
       responses:
         "200":
           description: OK
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+        "404":
+          description: No products found
           schema:
             $ref: '#/definitions/reqresp.StandardResponse'
       summary: Search products

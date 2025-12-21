@@ -157,8 +157,9 @@ func Run(configFiles ...string) {
 	}
 
 	offerRepo := repositories.NewOfferRepository(conns.DB)
+	outboxRepo := repositories.NewElasticsearchOutboxRepository(conns.DB)
 	offerUC := usecases.NewOfferUseCase(offerRepo)
-	offerService := services.NewOfferService(offerUC, offerPublisher)
+	offerService := services.NewOfferService(offerUC, productRepo, outboxRepo)
 
 	cartRepo := repositories.NewCartRepository(conns.DB)
 	cartUC := usecases.NewCartUseCase(cartRepo, offerRepo)
@@ -179,6 +180,9 @@ func Run(configFiles ...string) {
 	refundUC := usecases.NewRefundUsecase(refundRepo, orderRepo)
 	refundService := services.NewRefundService(refundUC)
 
+	// Admin service (full CRUD for products and user management)
+	adminService := services.NewAdminService(userRepo, productRepo, outboxRepo, appLogger)
+
 	// Wrap services
 	svc := &http.Services{
 		Auth:            authService,
@@ -189,6 +193,7 @@ func Run(configFiles ...string) {
 		Order:           orderService,
 		Payment:         paymentService,
 		Refund:          refundService,
+		Admin:           adminService,
 		Logger:          appLogger,
 		RateLimiter:     rateLimiter,
 		RateLimitConfig: rateLimitSettings,

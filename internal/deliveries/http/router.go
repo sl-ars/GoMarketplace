@@ -7,6 +7,7 @@ import (
 	httpSwagger "github.com/swaggo/http-swagger"
 
 	_ "go-app-marketplace/docs"
+	"go-app-marketplace/internal/deliveries/http/admin"
 	"go-app-marketplace/internal/deliveries/http/auth"
 	"go-app-marketplace/internal/deliveries/http/cart"
 	"go-app-marketplace/internal/deliveries/http/offer"
@@ -30,6 +31,7 @@ type Services struct {
 	Order   *services.OrderService
 	Payment *services.PaymentService
 	Refund  *services.RefundService
+	Admin   *services.AdminService
 	Logger  *logger.Logger
 
 	// Rate limiting
@@ -129,6 +131,12 @@ func NewRouter(s *Services) http.Handler {
 	// =========================================================================
 	refundHandler := refund.NewHandler(s.Refund, s.Logger)
 	refund.Register(api.PathPrefix("/").Subrouter(), refundHandler, jwtKey, s.Logger)
+
+	// =========================================================================
+	// Admin routes (admin only)
+	// =========================================================================
+	adminHandler := admin.NewHandler(s.Admin, s.Logger)
+	admin.RegisterRoutes(api.PathPrefix("/").Subrouter(), adminHandler, jwtKey, s.Logger)
 
 	// =========================================================================
 	// Stripe Webhook (no rate limit - Stripe handles retries)

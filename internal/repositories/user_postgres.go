@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -207,4 +208,162 @@ func (r *UserPostgresRepo) GetByEmailForPasswordReset(ctx context.Context, email
 		return nil, err
 	}
 	return &user, nil
+}
+
+// ============================================================================
+// Admin User Management Methods
+// ============================================================================
+
+// isValidRoleFilter validates role filter against allowed values
+// This prevents injection of arbitrary values into the query
+func isValidRoleFilter(role string) bool {
+	switch domain.UserRole(role) {
+	case domain.UserRoleAdmin, domain.UserRoleSeller, domain.UserRoleCustomer:
+		return true
+	case "": // Empty string means no filter
+		return true
+	default:
+		return false
+	}
+}
+
+// ListUsers returns a paginated list of users with optional filters
+// Security: Role filter is validated against whitelist to prevent injection
+func (r *UserPostgresRepo) ListUsers(ctx context.Context, page, pageSize int, role string, isBanned *bool) ([]*domain.User, int64, error) {
+	offset := (page - 1) * pageSize
+
+	// Validate role against whitelist (CWE-20: Input Validation)
+	if !isValidRoleFilter(role) {
+		return nil, 0, fmt.Errorf("invalid role filter: %s", role)
+	}
+
+	// Build query dynamically based on filters
+	query := `
+		SELECT id, username, email, role, email_verified, created_at, is_banned, banned_at, ban_reason, banned_by_id
+		FROM users
+		WHERE 1=1
+	`
+	countQuery := `SELECT COUNT(*) FROM users WHERE 1=1`
+	args := []interface{}{}
+	argIndex := 1
+
+	if role != "" {
+		query += fmt.Sprintf(" AND role = $%d", argIndex)
+		countQuery += fmt.Sprintf(" AND role = $%d", argIndex)
+		args = append(args, role)
+		argIndex++
+	}
+
+	if isBanned != nil {
+		query += fmt.Sprintf(" AND is_banned = $%d", argIndex)
+		countQuery += fmt.Sprintf(" AND is_banned = $%d", argIndex)
+		args = append(args, *isBanned)
+		argIndex++
+	}
+
+	query += fmt.Sprintf(" ORDER BY created_at DESC LIMIT $%d OFFSET $%d", argIndex, argIndex+1)
+	args = append(args, pageSize, offset)
+
+	var users []*domain.User
+	err := r.db.SelectContext(ctx, &users, query, args...)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// Get total count (remove limit/offset args)
+	countArgs := args[:len(args)-2]
+	var total int64
+	err = r.db.GetContext(ctx, &total, countQuery, countArgs...)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return users, total, nil
+}
+
+// BanUser bans a user with a reason
+func (r *UserPostgresRepo) BanUser(ctx context.Context, userID, bannedByID int64, reason string) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE users 
+		SET is_banned = TRUE,
+		    banned_at = NOW(),
+		    ban_reason = $1,
+		    banned_by_id = $2
+		WHERE id = $3
+	`, reason, bannedByID, userID)
+	return err
+}
+
+// UnbanUser removes the ban from a user
+func (r *UserPostgresRepo) UnbanUser(ctx context.Context, userID int64) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE users 
+		SET is_banned = FALSE,
+		    banned_at = NULL,
+		    ban_reason = NULL,
+		    banned_by_id = NULL
+		WHERE id = $1
+	`, userID)
+	return err
+}
+
+// UpdateUserRole updates the user's role
+func (r *UserPostgresRepo) UpdateUserRole(ctx context.Context, userID int64, role domain.UserRole) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE users SET role = $1 WHERE id = $2
+	`, role, userID)
+	return err
+}
+
+// DeleteUser permanently deletes a user (use with caution)
+func (r *UserPostgresRepo) DeleteUser(ctx context.Context, userID int64) error {
+	_, err := r.db.ExecContext(ctx, `DELETE FROM users WHERE id = $1`, userID)
+	return err
+}
+
+// GetUserStats returns statistics about users
+func (r *UserPostgresRepo) GetUserStats(ctx context.Context) (map[string]int64, error) {
+	stats := make(map[string]int64)
+
+	// Total users
+	var total int64
+	err := r.db.GetContext(ctx, &total, "SELECT COUNT(*) FROM users")
+	if err != nil {
+		return nil, err
+	}
+	stats["total"] = total
+
+	// By role
+	rows, err := r.db.QueryContext(ctx, "SELECT role, COUNT(*) FROM users GROUP BY role")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var role string
+		var count int64
+		if err := rows.Scan(&role, &count); err != nil {
+			return nil, err
+		}
+		stats["role_"+role] = count
+	}
+
+	// Banned users
+	var banned int64
+	err = r.db.GetContext(ctx, &banned, "SELECT COUNT(*) FROM users WHERE is_banned = TRUE")
+	if err != nil {
+		return nil, err
+	}
+	stats["banned"] = banned
+
+	// Verified users
+	var verified int64
+	err = r.db.GetContext(ctx, &verified, "SELECT COUNT(*) FROM users WHERE email_verified = TRUE")
+	if err != nil {
+		return nil, err
+	}
+	stats["verified"] = verified
+
+	return stats, nil
 }

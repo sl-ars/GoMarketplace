@@ -1,7 +1,6 @@
 package product
 
 import (
-	"encoding/json"
 	"net/http"
 	"strconv"
 
@@ -28,31 +27,7 @@ func NewProductHandler(productService *services.ProductService, offerService *se
 	}
 }
 
-// @Summary Create product
-// @Tags products
-// @Security BearerAuth
-// @Accept json
-// @Produce json
-// @Param input body reqresp.ProductCreateRequest true "Product data"
-// @Success 201 {object} reqresp.StandardResponse
-// @Router /api/admin/products [post]
-func (h *ProductHandler) CreateProduct(w http.ResponseWriter, r *http.Request) {
-	var req reqresp.ProductCreateRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.logger.WithError(err).Error("Failed to decode product create request")
-		httpx.WriteError(w, http.StatusBadRequest, apperror.ErrBadRequest, apperror.ErrInvalidJSON)
-		return
-	}
-
-	id, err := h.productService.CreateProduct(r.Context(), req.Name, req.Description)
-	if err != nil {
-		h.logger.WithError(err).Error("Failed to create product")
-		httpx.WriteError(w, http.StatusInternalServerError, apperror.ErrProductCreateFailed, apperror.ErrInternalServer)
-		return
-	}
-
-	httpx.WriteSuccess(w, http.StatusCreated, "Product created successfully", reqresp.ProductCreateResponse{ID: id})
-}
+// Note: CreateProduct is now handled by admin handler at /api/admin/products
 
 // @Summary Get product with offers
 // @Tags products
@@ -161,12 +136,14 @@ func (h *ProductHandler) ListProducts(w http.ResponseWriter, r *http.Request) {
 }
 
 // @Summary Search products
+// @Description Search for products using full-text search. Returns 404 if no products found.
 // @Tags products
 // @Produce json
 // @Param q query string true "Search query"
 // @Param page query int false "Page number" default(1)
 // @Param page_size query int false "Number of items per page" default(10)
 // @Success 200 {object} reqresp.StandardResponse
+// @Failure 404 {object} reqresp.StandardResponse "No products found"
 // @Router /api/products/search [get]
 func (h *ProductHandler) SearchProducts(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query().Get("q")
@@ -194,6 +171,13 @@ func (h *ProductHandler) SearchProducts(w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		h.logger.WithError(err).Error("Failed to search products")
 		httpx.WriteError(w, http.StatusInternalServerError, apperror.ErrInternalServer, "search failed")
+		return
+	}
+
+	// Return product not found error if no products found
+	if total == 0 {
+		h.logger.WithField("query", query).Warn("No products found for search query")
+		httpx.WriteError(w, http.StatusNotFound, apperror.ErrNotFound, apperror.ErrProductNotFound)
 		return
 	}
 
