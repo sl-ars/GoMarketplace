@@ -47,15 +47,15 @@ func (s *ProductService) CreateProduct(ctx context.Context, name, description st
 func (s *ProductService) GetProductByID(ctx context.Context, id int64) (*domain.Product, error) {
 	key := fmt.Sprintf("product:%d", id)
 
-	p,err := redisdb.CacheGetOrSet(ctx, key, 5*time.Minute, func() (*domain.Product, error){
+	p, err := redisdb.CacheGetOrSet(ctx, key, 5*time.Minute, func() (*domain.Product, error) {
 		return s.usecase.GetProductByID(ctx, id)
 	})
 
-	if err != nil{
-		return  nil, err
+	if err != nil {
+		return nil, err
 	}
 
-	return  p, nil
+	return p, nil
 }
 
 func (s *ProductService) ListProducts(ctx context.Context, page, pageSize int) ([]*domain.Product, int64, error) {
