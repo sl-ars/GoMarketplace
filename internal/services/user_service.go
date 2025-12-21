@@ -2,33 +2,43 @@ package services
 
 import (
 	"context"
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/sirupsen/logrus"
 	"fmt"
 	"go-app-marketplace/internal/redisdb"
 	"go-app-marketplace/internal/usecases"
 	"go-app-marketplace/pkg/auth"
 	"go-app-marketplace/pkg/domain"
 	"go-app-marketplace/pkg/hash"
+	"go-app-marketplace/pkg/logger"
 	"go-app-marketplace/pkg/reqresp"
 	"time"
-
-	"github.com/golang-jwt/jwt/v5"
 )
 
 type UserService struct {
 	usecase *usecases.UserUseCase
 	jwtKey  []byte
+	logger  *logger.Logger
 }
 
-func NewUserService(u *usecases.UserUseCase, jwtSecret string) *UserService {
+func NewUserService(u *usecases.UserUseCase, jwtSecret string, log *logger.Logger) *UserService {
 	return &UserService{
 		usecase: u,
 		jwtKey:  []byte(jwtSecret),
+		logger:  log,
 	}
 }
 
 func (s *UserService) Register(ctx context.Context, req *reqresp.RegisterUserRequest) (*reqresp.RegisterUserResponse, error) {
+	s.logger.WithFields(logrus.Fields{
+		"email":     req.Email,
+		"username":  req.Username,
+		"operation": "user_register",
+	}).Info("Processing user registration")
+
 	hashed, err := hash.HashPassword(req.Password)
 	if err != nil {
+		s.logger.WithError(err).WithField("operation", "user_register").Error("Failed to hash password")
 		return nil, err
 	}
 
@@ -41,8 +51,20 @@ func (s *UserService) Register(ctx context.Context, req *reqresp.RegisterUserReq
 
 	id, err := s.usecase.Register(ctx, user)
 	if err != nil {
+		s.logger.WithError(err).WithFields(logrus.Fields{
+			"email":     req.Email,
+			"username":  req.Username,
+			"operation": "user_register",
+		}).Error("Failed to register user in database")
 		return nil, err
 	}
+
+	s.logger.WithFields(logrus.Fields{
+		"userID":    id,
+		"email":     req.Email,
+		"username":  req.Username,
+		"operation": "user_register",
+	}).Info("User registered successfully in database")
 
 	return &reqresp.RegisterUserResponse{
 		ID:       id,
@@ -52,20 +74,42 @@ func (s *UserService) Register(ctx context.Context, req *reqresp.RegisterUserReq
 }
 
 func (s *UserService) Login(ctx context.Context, req *reqresp.LoginUserRequest) (*reqresp.LoginUserResponse, error) {
+	s.logger.WithFields(logrus.Fields{
+		"email":     req.Email,
+		"operation": "user_login",
+	}).Info("Processing user login")
+
 	user, err := s.usecase.Login(ctx, req.Email, req.Password)
 	if err != nil {
+		s.logger.WithError(err).WithFields(logrus.Fields{
+			"email":     req.Email,
+			"operation": "user_login",
+		}).Warn("User login failed - invalid credentials")
 		return nil, err
 	}
 
 	accessToken, err := auth.GenerateAccessToken(user.ID, string(user.Role), s.jwtKey)
 	if err != nil {
+		s.logger.WithError(err).WithFields(logrus.Fields{
+			"userID":    user.ID,
+			"operation": "user_login",
+		}).Error("Failed to generate access token")
 		return nil, err
 	}
 
 	refreshToken, err := auth.GenerateRefreshToken(user.ID, s.jwtKey)
 	if err != nil {
+		s.logger.WithError(err).WithFields(logrus.Fields{
+			"userID":    user.ID,
+			"operation": "user_login",
+		}).Error("Failed to generate refresh token")
 		return nil, err
 	}
+
+	s.logger.WithFields(logrus.Fields{
+		"userID":    user.ID,
+		"operation": "user_login",
+	}).Info("User login successful - tokens generated")
 
 	return &reqresp.LoginUserResponse{
 		AccessToken:  accessToken,

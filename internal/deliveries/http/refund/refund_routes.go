@@ -5,12 +5,13 @@ import (
 	"github.com/gorilla/mux"
 	"go-app-marketplace/internal/middleware"
 	"go-app-marketplace/pkg/domain"
+	"go-app-marketplace/pkg/logger"
 )
 
-func Register(r *mux.Router, h *Handler, jwt []byte) {
+func Register(r *mux.Router, h *Handler, jwt []byte, log *logger.Logger) {
 	// /api/refunds
 	sub := r.PathPrefix("/refunds").Subrouter()
-	sub.Use(middleware.AuthMiddleware(jwt))
+	sub.Use(middleware.AuthMiddleware(jwt, log))
 
 	// Customer
 	sub.HandleFunc("/{item_id:[0-9]+}", h.Request).Methods("POST")

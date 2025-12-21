@@ -4,13 +4,14 @@ import (
 	"github.com/gorilla/mux"
 	"go-app-marketplace/internal/middleware"
 	"go-app-marketplace/pkg/domain"
+	"go-app-marketplace/pkg/logger"
 	"net/http"
 )
 
-func RegisterOrderRoutes(r *mux.Router, h *OrderHandler, jwtKey []byte) {
+func RegisterOrderRoutes(r *mux.Router, h *OrderHandler, jwtKey []byte, log *logger.Logger) {
 
 	buyer := r.PathPrefix("/orders").Subrouter()
-	buyer.Use(middleware.AuthMiddleware(jwtKey))
+	buyer.Use(middleware.AuthMiddleware(jwtKey, log))
 
 	buyer.HandleFunc("/checkout", h.Checkout).Methods(http.MethodPost)
 
@@ -23,7 +24,7 @@ func RegisterOrderRoutes(r *mux.Router, h *OrderHandler, jwtKey []byte) {
 	buyer.HandleFunc("", h.ListOrders).Methods(http.MethodGet)
 
 	seller := r.PathPrefix("/seller").Subrouter()
-	seller.Use(middleware.AuthMiddleware(jwtKey))
+	seller.Use(middleware.AuthMiddleware(jwtKey, log))
 	seller.Use(middleware.RequireRoles(domain.UserRoleSeller))
 
 	seller.HandleFunc("/orders", h.ListSellerOrderItems).Methods(http.MethodGet)

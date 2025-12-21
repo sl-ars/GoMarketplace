@@ -8,7 +8,8 @@ import (
 	"go-app-marketplace/internal/repositories"
 	"go-app-marketplace/internal/services"
 	"go-app-marketplace/internal/usecases"
-	"go-app-marketplace/internal/messagebus"  
+	"go-app-marketplace/internal/messagebus"
+	"go-app-marketplace/pkg/logger"
 	"log"
 )
 
@@ -19,19 +20,24 @@ func Run(configFiles ...string) {
 		log.Fatalf("Failed to load configuration: %v", err)
 	}
 
+	// Initialize logger
+	appLogger := logger.New(cfg.Logger)
+	appLogger.Info("Starting application")
+
 	// Initialize DB and external connections
 	conns, err := connections.NewConnections(cfg)
 	if err != nil {
-		log.Fatalf("Failed to initialize connections: %v", err)
+		appLogger.WithError(err).Fatal("Failed to initialize connections")
 	}
 	defer conns.Close()
+	appLogger.Info("Database connection established")
 
 		// --- RabbitMQ connection ---
 	rmqConn, rmqCh, err := connections.NewRabbitMQConn(connections.RabbitMQConfig{
 		URL: cfg.RabbitMQURL,
 	})
 	if err != nil {
-		log.Fatalf("failed to connect to RabbitMQ: %v", err)
+		appLogger.WithError(err).Fatal("failed to connect to RabbitMQ")
 	}
 	defer rmqConn.Close()
 	defer rmqCh.Close()
@@ -42,13 +48,14 @@ func Run(configFiles ...string) {
 		"orders.created", // routing key
 	)
 	if err != nil {
-		log.Fatalf("failed to create order publisher: %v", err)
+		appLogger.WithError(err).Fatal("failed to create order publishe")
+
 	}
 
 	// Dependency injection
-	userRepo := repositories.NewUserPostgresRepo(conns.DB)
+	userRepo := repositories.NewUserPostgresRepo(conns.DB, appLogger)
 	userUC := usecases.NewUserUseCase(userRepo)
-	userService := services.NewUserService(userUC, cfg.JWTSecret)
+	userService := services.NewUserService(userUC, cfg.JWTSecret, appLogger)
 
 	productRepo := repositories.NewProductRepository(conns.DB)
 	productUC := usecases.NewProductUseCase(productRepo)
@@ -86,11 +93,13 @@ func Run(configFiles ...string) {
 		Payment: paymentService,
 		Refund:  refundService,
 		JWTKey:  []byte(cfg.JWTSecret),
+		Logger:  appLogger,
 	}
 
 	// Router
 	router := http.NewRouter(svc)
 
 	// Start the server
+	appLogger.WithField("port", cfg.HTTPServer.Port).Info("Starting HTTP server")
 	start.StartHTTPServer(cfg.HTTPServer.Port, router)
 }

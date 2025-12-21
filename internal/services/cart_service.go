@@ -41,7 +41,7 @@ func (s *CartService) AddItem(ctx context.Context, userID, offerID int64, quanti
 
 func (s *CartService) GetCart(ctx context.Context, userID int64) ([]domain.CartItem, error) {
 	key := fmt.Sprintf("cart:%d", userID)
-	
+
 	cart, err := redisdb.CacheGetOrSet(ctx,key, 2*time.Minute, func() ([]domain.CartItem, error) {
 		return s.usecase.GetItems(ctx, userID)
 	})

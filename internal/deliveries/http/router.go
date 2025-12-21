@@ -11,7 +11,9 @@ import (
 	"go-app-marketplace/internal/deliveries/http/refund"
 	"go-app-marketplace/internal/deliveries/http/user"
 	"go-app-marketplace/internal/deliveries/http/webhook"
+	"go-app-marketplace/internal/middleware"
 	"go-app-marketplace/internal/services"
+	"go-app-marketplace/pkg/logger"
 	"net/http"
 )
 
@@ -24,10 +26,14 @@ type Services struct {
 	Payment *services.PaymentService
 	Refund  *services.RefundService
 	JWTKey  []byte
+	Logger  *logger.Logger
 }
 
 func NewRouter(s *Services) http.Handler {
 	r := mux.NewRouter()
+
+	// Добавляем middleware логирования
+	r.Use(middleware.LoggingMiddleware(s.Logger))
 
 	// API routes
 	api := r.PathPrefix("/api").Subrouter()
@@ -38,27 +44,27 @@ func NewRouter(s *Services) http.Handler {
 	}).Methods("GET")
 
 	// User routes
-	user.RegisterUserRoutes(api.PathPrefix("/").Subrouter(), s.User, s.JWTKey)
+	user.RegisterUserRoutes(api.PathPrefix("/").Subrouter(), s.User, s.JWTKey, s.Logger)
 
 	// Cart routes
 	cartHandler := cart.NewCartHandler(s.Cart)
-	cart.RegisterCartRoutes(api.PathPrefix("/").Subrouter(), cartHandler, s.JWTKey)
+	cart.RegisterCartRoutes(api.PathPrefix("/").Subrouter(), cartHandler, s.JWTKey, s.Logger)
 
 	// Product routes
 	productHandler := product.NewProductHandler(s.Product, s.Offer)
-	product.RegisterProductRoutes(api.PathPrefix("/").Subrouter(), productHandler, s.JWTKey)
+	product.RegisterProductRoutes(api.PathPrefix("/").Subrouter(), productHandler, s.JWTKey, s.Logger)
 
 	// Offer routes
 	offerHandler := offer.NewOfferHandler(s.Offer)
-	offer.RegisterOfferRoutes(api.PathPrefix("/").Subrouter(), offerHandler, s.JWTKey)
+	offer.RegisterOfferRoutes(api.PathPrefix("/").Subrouter(), offerHandler, s.JWTKey, s.Logger)
 
 	// Order routes
 	orderHandler := order.NewOrderHandler(s.Order)
-	order.RegisterOrderRoutes(api.PathPrefix("/").Subrouter(), orderHandler, s.JWTKey)
+	order.RegisterOrderRoutes(api.PathPrefix("/").Subrouter(), orderHandler, s.JWTKey, s.Logger)
 
 	// Refund routes
 	refundHandler := refund.NewHandler(s.Refund)
-	refund.Register(api.PathPrefix("/").Subrouter(), refundHandler, s.JWTKey)
+	refund.Register(api.PathPrefix("/").Subrouter(), refundHandler, s.JWTKey, s.Logger)
 
 	// Stripe Webhook Handler
 	stripeWebhookHandler := webhook.NewStripeWebhookHandler(s.Order, s.Payment.GetWebhookSecret())
