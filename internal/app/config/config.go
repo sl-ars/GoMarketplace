@@ -73,7 +73,13 @@ type DBConfig struct {
 }
 
 func NewConfig(filenames ...string) (*Config, error) {
-	_ = godotenv.Load(filenames...)
+	// Load provided env files; if none provided, load project defaults
+	if len(filenames) > 0 {
+		_ = godotenv.Load(filenames...)
+	} else {
+		// default to configs/.env (project layout) and fallback to .env
+		_ = godotenv.Load("configs/.env", ".env")
+	}
 
 	cfg := &Config{DB: &DBConfig{}}
 

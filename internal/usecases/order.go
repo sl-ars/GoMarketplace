@@ -3,8 +3,8 @@ package usecases
 import (
 	"context"
 	"errors"
-	"go-app-marketplace/internal/repositories"
 	"go-app-marketplace/internal/messagebus"
+	"go-app-marketplace/internal/repositories"
 	"go-app-marketplace/pkg/domain"
 	"go-app-marketplace/pkg/reqresp"
 )
@@ -24,9 +24,9 @@ func NewOrderUsecase(
 	orderPublisher messagebus.OrderEventPublisher,
 ) *OrderUsecase {
 	return &OrderUsecase{
-		orderRepo: orderRepo,
-		cartRepo:  cartRepo,
-		offerRepo: offerRepo,
+		orderRepo:      orderRepo,
+		cartRepo:       cartRepo,
+		offerRepo:      offerRepo,
 		orderPublisher: orderPublisher,
 	}
 }

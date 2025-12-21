@@ -105,6 +105,16 @@ func Run(configFiles ...string) {
 		appLogger.Warn("Email sending is disabled - set EMAIL_ENABLED=true to enable")
 	}
 
+	// Offer publisher: uses delayed-message exchange (requires rabbitmq_delayed_message_exchange plugin)
+	offerPublisher, err := messagebus.NewRabbitMQOfferPublisher(
+		rmqCh,
+		"app.offers.exchange", // delayed exchange name
+		"offers.update",       // routing key
+	)
+	if err != nil {
+		appLogger.WithError(err).Fatal("failed to create offer publisher")
+	}
+
 	// Dependency injection
 	userRepo := repositories.NewUserPostgresRepo(conns.DB, appLogger)
 

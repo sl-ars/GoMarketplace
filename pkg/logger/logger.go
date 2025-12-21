@@ -32,7 +32,7 @@ func New(config Config) *Logger {
 	// Устанавливаем формат вывода
 	if config.Format == "text" {
 		logger.SetFormatter(&logrus.TextFormatter{
-			FullTimestamp: true,
+			FullTimestamp:   true,
 			TimestampFormat: "2006-01-02 15:04:05",
 		})
 	} else {

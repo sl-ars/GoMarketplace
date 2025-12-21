@@ -157,4 +157,3 @@ func KeyFromUserID(userID int64, endpoint string) string {
 func KeyGlobal(endpoint string) string {
 	return fmt.Sprintf("global:%s", endpoint)
 }
-

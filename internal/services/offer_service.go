@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"go-app-marketplace/internal/messagebus"
 	"go-app-marketplace/internal/redisdb"
 	"go-app-marketplace/internal/repositories"
 	"go-app-marketplace/internal/usecases"
@@ -98,6 +99,21 @@ func (s *OfferService) ListOffersByProduct(ctx context.Context, productID int64)
 }
 
 func (s *OfferService) UpdateOffer(ctx context.Context, id, sellerID int64, price float64, stock int, isAvailable bool) error {
+	// If a publisher exists, schedule the update to be applied later (default 1 minute)
+	if s.publisher != nil {
+		evt := messagebus.OfferUpdateEvent{
+			OfferID:     id,
+			SellerID:    sellerID,
+			Price:       price,
+			Stock:       stock,
+			IsAvailable: isAvailable,
+		}
+		// schedule with 60_000 ms delay (1 minute)
+		_ = s.publisher.PublishOfferUpdateDelayed(ctx, evt, 60_000)
+		return nil
+	}
+
+	// fallback: apply immediately
 	// Get the offer first to get the product ID
 	existingOffer, err := s.usecase.GetOfferByID(ctx, id)
 	if err != nil {
