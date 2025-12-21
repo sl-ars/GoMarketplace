@@ -15,13 +15,15 @@ type OfferService struct {
 	usecase     *usecases.OfferUseCase
 	productRepo *repositories.ProductRepository
 	outboxRepo  *repositories.ElasticsearchOutboxRepository
+	publisher   messagebus.OfferEventPublisher
 }
 
-func NewOfferService(uc *usecases.OfferUseCase, productRepo *repositories.ProductRepository, outboxRepo *repositories.ElasticsearchOutboxRepository) *OfferService {
+func NewOfferService(uc *usecases.OfferUseCase, productRepo *repositories.ProductRepository, outboxRepo *repositories.ElasticsearchOutboxRepository, publisher messagebus.OfferEventPublisher) *OfferService {
 	return &OfferService{
 		usecase:     uc,
 		productRepo: productRepo,
 		outboxRepo:  outboxRepo,
+		publisher:   publisher,
 	}
 }
 

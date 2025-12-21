@@ -159,7 +159,7 @@ func Run(configFiles ...string) {
 	offerRepo := repositories.NewOfferRepository(conns.DB)
 	outboxRepo := repositories.NewElasticsearchOutboxRepository(conns.DB)
 	offerUC := usecases.NewOfferUseCase(offerRepo)
-	offerService := services.NewOfferService(offerUC, productRepo, outboxRepo)
+	offerService := services.NewOfferService(offerUC, productRepo, outboxRepo, offerPublisher)
 
 	cartRepo := repositories.NewCartRepository(conns.DB)
 	cartUC := usecases.NewCartUseCase(cartRepo, offerRepo)
