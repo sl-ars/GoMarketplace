@@ -31,6 +31,17 @@ type User struct {
 	// Password reset fields
 	ResetTokenHash      sql.NullString `db:"reset_token_hash"`
 	ResetTokenExpiresAt sql.NullTime   `db:"reset_token_expires_at"`
+
+	// Ban fields
+	IsBanned   bool           `db:"is_banned"`
+	BannedAt   sql.NullTime   `db:"banned_at"`
+	BanReason  sql.NullString `db:"ban_reason"`
+	BannedByID sql.NullInt64  `db:"banned_by_id"`
+}
+
+// IsBannedUser returns true if the user is banned
+func (u *User) IsBannedUser() bool {
+	return u.IsBanned
 }
 
 func IsValidRole(role UserRole) bool {

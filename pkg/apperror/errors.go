@@ -62,6 +62,23 @@ const (
 	ErrRefundCreateFailed = "Failed to create refund request."
 	ErrRefundUpdateFailed = "Failed to update refund status."
 	ErrRefundNotAllowed   = "Refund is not allowed for this item."
+
+	// Admin errors
+	ErrUserBanned            = "This account has been banned."
+	ErrUserAlreadyBanned     = "User is already banned."
+	ErrUserNotBanned         = "User is not banned."
+	ErrCannotBanAdmin        = "Cannot ban admin users."
+	ErrCannotBanSelf         = "Cannot ban yourself."
+	ErrCannotDeleteAdmin     = "Cannot delete admin users."
+	ErrCannotDeleteSelf      = "Cannot delete yourself."
+	ErrCannotChangeAdminRole = "Cannot change admin role."
+	ErrInvalidRole           = "Invalid user role."
+	ErrProductUpdateFailed   = "Failed to update product."
+	ErrProductDeleteFailed   = "Failed to delete product."
+	ErrBanFailed             = "Failed to ban user."
+	ErrUnbanFailed           = "Failed to unban user."
+	ErrRoleUpdateFailed      = "Failed to update user role."
+	ErrUserDeleteFailed      = "Failed to delete user."
 )
 
 // AppError represents an application error with a safe message for clients

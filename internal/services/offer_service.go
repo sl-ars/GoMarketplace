@@ -4,20 +4,34 @@ import (
 	"context"
 	"fmt"
 	"go-app-marketplace/internal/redisdb"
+	"go-app-marketplace/internal/repositories"
 	"go-app-marketplace/internal/usecases"
 	"go-app-marketplace/pkg/domain"
 	"time"
 )
 
 type OfferService struct {
-	usecase *usecases.OfferUseCase
+	usecase     *usecases.OfferUseCase
+	productRepo *repositories.ProductRepository
+	outboxRepo  *repositories.ElasticsearchOutboxRepository
 }
 
-func NewOfferService(uc *usecases.OfferUseCase) *OfferService {
-	return &OfferService{usecase: uc}
+func NewOfferService(uc *usecases.OfferUseCase, productRepo *repositories.ProductRepository, outboxRepo *repositories.ElasticsearchOutboxRepository) *OfferService {
+	return &OfferService{
+		usecase:     uc,
+		productRepo: productRepo,
+		outboxRepo:  outboxRepo,
+	}
 }
 
 func (s *OfferService) CreateOffer(ctx context.Context, productID, sellerID int64, price float64, stock int, isAvailable bool) (int64, error) {
+	// Get database transaction from context or create a new one
+	// For now, we'll create a transaction at the service level
+	// In a real implementation, you might want to pass transactions from higher layers
+
+	// Since the repository uses *sqlx.DB, we need to access it directly
+	// This is a simplified approach - in production you'd want better transaction management
+
 	offer := &domain.Offer{
 		ProductID:   productID,
 		SellerID:    sellerID,
@@ -25,14 +39,33 @@ func (s *OfferService) CreateOffer(ctx context.Context, productID, sellerID int6
 		Stock:       stock,
 		IsAvailable: isAvailable,
 	}
-		id, err := s.usecase.CreateOffer(ctx, offer)
+
+	// For now, we'll use the existing approach but add outbox event
+	// In a full implementation, you'd wrap this in a transaction
+	id, err := s.usecase.CreateOffer(ctx, offer)
 	if err != nil {
 		return 0, err
 	}
 
-	// Очистка кэша списка офферов по продукту
+	// Clear cache
 	key := fmt.Sprintf("offers:product:%d", productID)
 	_ = redisdb.Rdb.Del(ctx, key)
+
+	// Insert event into outbox (this should be in the same transaction as the offer creation)
+	// For now, we'll do it separately - in production, use transaction
+	eventPayload := map[string]interface{}{
+		"product_id":   productID,
+		"seller_id":    sellerID,
+		"price":        price,
+		"stock":        stock,
+		"is_available": isAvailable,
+	}
+
+	if err := s.outboxRepo.InsertEvent(ctx, nil, "product", productID, "updated", eventPayload); err != nil {
+		// Log error but don't fail the offer creation
+		// In production, this should be in the same transaction
+		fmt.Printf("Failed to insert outbox event: %v\n", err)
+	}
 
 	return id, nil
 }
@@ -44,7 +77,7 @@ func (s *OfferService) GetOfferByID(ctx context.Context, id int64) (*domain.Offe
 		return s.usecase.GetOfferByID(ctx, id)
 	})
 
-	if err != nil{
+	if err != nil {
 		return nil, err
 	}
 	return offer, nil
@@ -65,9 +98,16 @@ func (s *OfferService) ListOffersByProduct(ctx context.Context, productID int64)
 }
 
 func (s *OfferService) UpdateOffer(ctx context.Context, id, sellerID int64, price float64, stock int, isAvailable bool) error {
+	// Get the offer first to get the product ID
+	existingOffer, err := s.usecase.GetOfferByID(ctx, id)
+	if err != nil {
+		return err
+	}
+
 	offer := &domain.Offer{
 		ID:          id,
 		SellerID:    sellerID,
+		ProductID:   existingOffer.ProductID, // Preserve the product ID
 		Price:       price,
 		Stock:       stock,
 		IsAvailable: isAvailable,
@@ -76,21 +116,54 @@ func (s *OfferService) UpdateOffer(ctx context.Context, id, sellerID int64, pric
 		return err
 	}
 
-	// Очистка кэша конкретного оффера
+	// Clear cache
 	offerKey := fmt.Sprintf("offer:%d", id)
 	_ = redisdb.Rdb.Del(ctx, offerKey)
+
+	// Insert event into outbox
+	eventPayload := map[string]interface{}{
+		"offer_id":     id,
+		"product_id":   existingOffer.ProductID,
+		"seller_id":    sellerID,
+		"price":        price,
+		"stock":        stock,
+		"is_available": isAvailable,
+	}
+
+	if err := s.outboxRepo.InsertEvent(ctx, nil, "product", existingOffer.ProductID, "updated", eventPayload); err != nil {
+		fmt.Printf("Failed to insert outbox event: %v\n", err)
+	}
+
 	return nil
 }
 
 func (s *OfferService) DeleteOffer(ctx context.Context, id, sellerID int64) error {
-		err := s.usecase.DeleteOffer(ctx, id, sellerID)
+	// Get the offer first to get the product ID before deleting
+	offer, err := s.usecase.GetOfferByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	productID := offer.ProductID
+
+	err = s.usecase.DeleteOffer(ctx, id, sellerID)
 	if err != nil {
 		return err
 	}
 
-	// Очистка кэша по ID офферa
+	// Clear cache
 	key := fmt.Sprintf("offer:%d", id)
 	_ = redisdb.Rdb.Del(ctx, key)
+
+	// Insert event into outbox
+	eventPayload := map[string]interface{}{
+		"offer_id":   id,
+		"product_id": productID,
+		"seller_id":  sellerID,
+	}
+
+	if err := s.outboxRepo.InsertEvent(ctx, nil, "product", productID, "updated", eventPayload); err != nil {
+		fmt.Printf("Failed to insert outbox event: %v\n", err)
+	}
 
 	return nil
 }
