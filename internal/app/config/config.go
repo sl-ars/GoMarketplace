@@ -1,24 +1,27 @@
+//config.go
 package config
 
 import (
 	"log"
 	"os"
 
+	"go-app-marketplace/pkg/logger"
+
 	"github.com/caarlos0/env/v6"
 	"github.com/joho/godotenv"
-	"go-app-marketplace/pkg/logger"
 )
 
 type Config struct {
-	HTTPServer          HTTPServerConfig `envPrefix:"HTTP_"`
-	DB                  *DBConfig        `envPrefix:"DB_"`
-	Redis               RedisConfig      `envPrefix:"REDIS_"`
-	RateLimit           RateLimitConfig  `envPrefix:"RATELIMIT_"`
-	JWTSecret           string           `env:"JWT_SECRET"`
-	StripeSecretKey     string           `env:"STRIPE_SECRET_KEY"`
-	StripeWebhookSecret string           `env:"STRIPE_WEBHOOK_SECRET"`
-	RabbitMQURL         string           `env:"RABBIT_MQ_URL"`
-	Logger              logger.Config    `envPrefix:"LOG_"`
+	HTTPServer          HTTPServerConfig    `envPrefix:"HTTP_"`
+	DB                  *DBConfig           `envPrefix:"DB_"`
+	Redis               RedisConfig         `envPrefix:"REDIS_"`
+	Elasticsearch       ElasticsearchConfig `envPrefix:"ES_"`
+	RateLimit           RateLimitConfig     `envPrefix:"RATELIMIT_"`
+	JWTSecret           string              `env:"JWT_SECRET"`
+	StripeSecretKey     string              `env:"STRIPE_SECRET_KEY"`
+	StripeWebhookSecret string              `env:"STRIPE_WEBHOOK_SECRET"`
+	RabbitMQURL         string              `env:"RABBIT_MQ_URL"`
+	Logger              logger.Config       `envPrefix:"LOG_"`
 }
 
 // RateLimitConfig defines rate limiting settings
@@ -33,6 +36,13 @@ type RedisConfig struct {
 	Addr     string `env:"ADDR" envDefault:"localhost:6379"`
 	Password string `env:"PASSWORD" envDefault:""`
 	DB       int    `env:"DB" envDefault:"0"`
+}
+
+type ElasticsearchConfig struct {
+	Enabled   bool     `env:"ENABLED" envDefault:"true"`
+	Addresses []string `env:"ADDRESSES" envDefault:"http://localhost:9200" envSeparator:","`
+	Username  string   `env:"USERNAME" envDefault:""`
+	Password  string   `env:"PASSWORD" envDefault:""`
 }
 
 type HTTPServerConfig struct {

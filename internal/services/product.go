@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"go-app-marketplace/internal/elasticsearch"
 	"go-app-marketplace/internal/redisdb"
 	"go-app-marketplace/internal/usecases"
 	"go-app-marketplace/pkg/domain"
@@ -10,11 +11,16 @@ import (
 )
 
 type ProductService struct {
-	usecase *usecases.ProductUseCase
+	usecase       *usecases.ProductUseCase
+	searchService *elasticsearch.ProductSearchService
 }
 
 func NewProductService(uc *usecases.ProductUseCase) *ProductService {
 	return &ProductService{usecase: uc}
+}
+
+func (s *ProductService) SetSearchService(searchService *elasticsearch.ProductSearchService) {
+	s.searchService = searchService
 }
 
 func (s *ProductService) CreateProduct(ctx context.Context, name, description string) (int64, error) {
@@ -22,7 +28,20 @@ func (s *ProductService) CreateProduct(ctx context.Context, name, description st
 		Name:        name,
 		Description: description,
 	}
-	return s.usecase.CreateProduct(ctx, product)
+	id, err := s.usecase.CreateProduct(ctx, product)
+	if err != nil {
+		return 0, err
+	}
+
+	// Index in Elasticsearch asynchronously
+	if s.searchService != nil {
+		go func() {
+			product.ID = id
+			_ = s.searchService.IndexProduct(context.Background(), product, nil)
+		}()
+	}
+
+	return id, nil
 }
 
 func (s *ProductService) GetProductByID(ctx context.Context, id int64) (*domain.Product, error) {
@@ -51,4 +70,11 @@ func (s *ProductService) ListProducts(ctx context.Context, page, pageSize int) (
 	}
 
 	return products, total, nil
+}
+
+func (s *ProductService) SearchProducts(ctx context.Context, query string, page, pageSize int) ([]elasticsearch.ProductDocument, int, error) {
+	if s.searchService == nil {
+		return nil, 0, fmt.Errorf("search service not initialized")
+	}
+	return s.searchService.SearchProducts(ctx, query, page, pageSize)
 }

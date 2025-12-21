@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"log"
 	"time"
 
@@ -8,6 +9,7 @@ import (
 	"go-app-marketplace/internal/app/connections"
 	"go-app-marketplace/internal/app/start"
 	"go-app-marketplace/internal/deliveries/http"
+	"go-app-marketplace/internal/elasticsearch"
 	"go-app-marketplace/internal/messagebus"
 	"go-app-marketplace/internal/redisdb"
 	"go-app-marketplace/internal/repositories"
@@ -94,6 +96,28 @@ func Run(configFiles ...string) {
 	productRepo := repositories.NewProductRepository(conns.DB)
 	productUC := usecases.NewProductUseCase(productRepo)
 	productService := services.NewProductService(productUC)
+
+	// Initialize Elasticsearch
+	var productSearchService *elasticsearch.ProductSearchService
+	if cfg.Elasticsearch.Enabled {
+		esClient, err := elasticsearch.NewClient(
+			cfg.Elasticsearch.Addresses,
+			cfg.Elasticsearch.Username,
+			cfg.Elasticsearch.Password,
+			appLogger.Logger,
+		)
+		if err != nil {
+			appLogger.WithError(err).Warn("Failed to initialize Elasticsearch, search will be disabled")
+		} else {
+			productSearchService = elasticsearch.NewProductSearchService(esClient)
+			if err := productSearchService.InitializeIndex(context.Background()); err != nil {
+				appLogger.WithError(err).Warn("Failed to initialize product search index")
+			} else {
+				appLogger.Info("Elasticsearch product search initialized")
+				productService.SetSearchService(productSearchService)
+			}
+		}
+	}
 
 	offerRepo := repositories.NewOfferRepository(conns.DB)
 	offerUC := usecases.NewOfferUseCase(offerRepo)
