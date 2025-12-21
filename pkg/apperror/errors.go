@@ -13,6 +13,7 @@ const (
 	ErrValidationFailed = "Validation failed. Please check your input."
 	ErrInvalidJSON      = "Invalid JSON format."
 	ErrInvalidID        = "Invalid ID format."
+	ErrTooManyRequests  = "Rate limit exceeded. Please slow down and try again later."
 
 	// Auth errors
 	ErrInvalidCredentials = "Invalid email or password."

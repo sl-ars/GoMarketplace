@@ -13,11 +13,20 @@ type Config struct {
 	HTTPServer          HTTPServerConfig `envPrefix:"HTTP_"`
 	DB                  *DBConfig        `envPrefix:"DB_"`
 	Redis               RedisConfig      `envPrefix:"REDIS_"`
+	RateLimit           RateLimitConfig  `envPrefix:"RATELIMIT_"`
 	JWTSecret           string           `env:"JWT_SECRET"`
 	StripeSecretKey     string           `env:"STRIPE_SECRET_KEY"`
 	StripeWebhookSecret string           `env:"STRIPE_WEBHOOK_SECRET"`
 	RabbitMQURL         string           `env:"RABBIT_MQ_URL"`
 	Logger              logger.Config    `envPrefix:"LOG_"`
+}
+
+// RateLimitConfig defines rate limiting settings
+type RateLimitConfig struct {
+	Enabled          bool `env:"ENABLED" envDefault:"true"`
+	AuthRequests     int  `env:"AUTH_REQUESTS" envDefault:"5"`
+	PublicRequests   int  `env:"PUBLIC_REQUESTS" envDefault:"60"`
+	StandardRequests int  `env:"STANDARD_REQUESTS" envDefault:"120"`
 }
 
 type RedisConfig struct {

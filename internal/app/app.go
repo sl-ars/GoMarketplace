@@ -2,6 +2,7 @@ package app
 
 import (
 	"log"
+	"time"
 
 	"go-app-marketplace/internal/app/config"
 	"go-app-marketplace/internal/app/connections"
@@ -13,6 +14,7 @@ import (
 	"go-app-marketplace/internal/services"
 	"go-app-marketplace/internal/usecases"
 	"go-app-marketplace/pkg/logger"
+	"go-app-marketplace/pkg/ratelimit"
 )
 
 func Run(configFiles ...string) {
@@ -36,6 +38,30 @@ func Run(configFiles ...string) {
 	// Set Redis client for cache utilities
 	redisdb.SetClient(conns.Redis)
 	appLogger.Info("Database and Redis connections established")
+
+	// Initialize rate limiter
+	var rateLimiter *ratelimit.RedisLimiter
+	if cfg.RateLimit.Enabled {
+		rateLimiter = ratelimit.NewRedisLimiter(conns.Redis, "marketplace:ratelimit")
+		appLogger.Info("Rate limiter initialized")
+	}
+
+	// Build rate limit settings from config
+	rateLimitSettings := http.RateLimitSettings{
+		Enabled: cfg.RateLimit.Enabled,
+		Auth: ratelimit.Config{
+			Requests: cfg.RateLimit.AuthRequests,
+			Window:   time.Minute,
+		},
+		Public: ratelimit.Config{
+			Requests: cfg.RateLimit.PublicRequests,
+			Window:   time.Minute,
+		},
+		Standard: ratelimit.Config{
+			Requests: cfg.RateLimit.StandardRequests,
+			Window:   time.Minute,
+		},
+	}
 
 	// --- RabbitMQ connection ---
 	rmqConn, rmqCh, err := connections.NewRabbitMQConn(cfg.RabbitMQURL)
@@ -94,15 +120,17 @@ func Run(configFiles ...string) {
 
 	// Wrap services
 	svc := &http.Services{
-		Auth:    authService,
-		User:    userService,
-		Cart:    cartService,
-		Product: productService,
-		Offer:   offerService,
-		Order:   orderService,
-		Payment: paymentService,
-		Refund:  refundService,
-		Logger:  appLogger,
+		Auth:            authService,
+		User:            userService,
+		Cart:            cartService,
+		Product:         productService,
+		Offer:           offerService,
+		Order:           orderService,
+		Payment:         paymentService,
+		Refund:          refundService,
+		Logger:          appLogger,
+		RateLimiter:     rateLimiter,
+		RateLimitConfig: rateLimitSettings,
 	}
 
 	// Router
