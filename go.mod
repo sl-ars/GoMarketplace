@@ -11,6 +11,8 @@ require (
 	github.com/jmoiron/sqlx v1.4.0
 	github.com/joho/godotenv v1.5.1
 	github.com/lib/pq v1.10.9
+	github.com/rabbitmq/amqp091-go v1.10.0
+	github.com/redis/go-redis/v9 v9.14.1
 	github.com/sirupsen/logrus v1.9.3
 	github.com/stripe/stripe-go/v82 v82.0.0
 	github.com/swaggo/http-swagger v1.3.4
@@ -34,8 +36,6 @@ require (
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
 	github.com/mailru/easyjson v0.7.6 // indirect
-	github.com/rabbitmq/amqp091-go v1.10.0 // indirect
-	github.com/redis/go-redis/v9 v9.14.1 // indirect
 	github.com/swaggo/files v0.0.0-20220610200504-28940afbdbfe // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	golang.org/x/net v0.34.0 // indirect

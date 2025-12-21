@@ -2,9 +2,9 @@ package services
 
 import (
 	"context"
+	"fmt"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/sirupsen/logrus"
-	"fmt"
 	"go-app-marketplace/internal/redisdb"
 	"go-app-marketplace/internal/usecases"
 	"go-app-marketplace/pkg/auth"
