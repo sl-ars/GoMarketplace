@@ -39,10 +39,11 @@ type Services struct {
 
 // RateLimitSettings holds rate limit configuration
 type RateLimitSettings struct {
-	Enabled  bool
-	Auth     ratelimit.Config
-	Public   ratelimit.Config
-	Standard ratelimit.Config
+	Enabled        bool
+	Auth           ratelimit.Config
+	Public         ratelimit.Config
+	Standard       ratelimit.Config
+	TrustedProxies *middleware.TrustedProxies
 }
 
 func NewRouter(s *Services) http.Handler {
@@ -53,8 +54,9 @@ func NewRouter(s *Services) http.Handler {
 
 	// Rate limit config for middleware
 	rlConfig := &middleware.RateLimitConfig{
-		Limiter: s.RateLimiter,
-		Logger:  s.Logger,
+		Limiter:        s.RateLimiter,
+		Logger:         s.Logger,
+		TrustedProxies: s.RateLimitConfig.TrustedProxies,
 	}
 
 	// API routes
@@ -86,6 +88,11 @@ func NewRouter(s *Services) http.Handler {
 	authRouter.HandleFunc("/login", authHandler.Login).Methods("POST")
 	authRouter.HandleFunc("/refresh", authHandler.Refresh).Methods("POST")
 	authRouter.HandleFunc("/verify", authHandler.Verify).Methods("GET")
+	// Email verification & password reset
+	authRouter.HandleFunc("/verify-email", authHandler.VerifyEmail).Methods("GET", "POST")
+	authRouter.HandleFunc("/resend-verification", authHandler.ResendVerification).Methods("POST")
+	authRouter.HandleFunc("/forgot-password", authHandler.ForgotPassword).Methods("POST")
+	authRouter.HandleFunc("/reset-password", authHandler.ResetPassword).Methods("POST")
 
 	// =========================================================================
 	// User routes (protected)

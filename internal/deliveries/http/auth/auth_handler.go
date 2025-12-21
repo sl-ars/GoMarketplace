@@ -34,7 +34,7 @@ func NewHandler(service *services.AuthService, log *logger.Logger) *Handler {
 
 // Register handles user registration
 // @Summary Register new user
-// @Description Registers a new user with username, email, and password
+// @Description Registers a new user with username, email, and password. Sends verification email.
 // @Tags auth
 // @Accept json
 // @Produce json
@@ -72,8 +72,9 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	res.Message = "Registration successful. Please check your email to verify your account."
 	h.logger.WithField("userID", res.ID).Info("User registered successfully")
-	httpx.WriteSuccess(w, http.StatusCreated, "User registered successfully", res)
+	httpx.WriteSuccess(w, http.StatusCreated, "User registered successfully. Please verify your email.", res)
 }
 
 // Login handles user authentication
@@ -86,6 +87,7 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 // @Success 200 {object} reqresp.StandardResponse
 // @Failure 400 {object} reqresp.StandardResponse
 // @Failure 401 {object} reqresp.StandardResponse
+// @Failure 403 {object} reqresp.StandardResponse "Email not verified"
 // @Router /api/auth/login [post]
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	var req reqresp.LoginRequest
@@ -103,6 +105,10 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := h.service.Login(r.Context(), &req)
 	if err != nil {
+		if errors.Is(err, usecases.ErrEmailNotVerified) {
+			httpx.WriteError(w, http.StatusForbidden, "Email not verified", apperror.ErrEmailNotVerified)
+			return
+		}
 		h.logger.WithError(err).Warn("Login failed")
 		httpx.WriteError(w, http.StatusUnauthorized, apperror.ErrUnauthorized, apperror.ErrInvalidCredentials)
 		return
@@ -110,6 +116,166 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 
 	h.logger.Info("User logged in successfully")
 	httpx.WriteSuccess(w, http.StatusOK, "Login successful", resp)
+}
+
+// VerifyEmail handles email verification
+// @Summary Verify email address
+// @Description Verifies user's email using token from email link or email + code
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param input body reqresp.VerifyEmailRequest true "Verification token or email + code"
+// @Success 200 {object} reqresp.StandardResponse
+// @Failure 400 {object} reqresp.StandardResponse
+// @Router /api/auth/verify-email [post]
+func (h *Handler) VerifyEmail(w http.ResponseWriter, r *http.Request) {
+	var req reqresp.VerifyEmailRequest
+
+	// Try to get token from query param first (for email link clicks)
+	tokenParam := r.URL.Query().Get("token")
+	if tokenParam != "" {
+		req.Token = tokenParam
+	} else {
+		// Otherwise parse from body
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			h.logger.WithError(err).Error("Failed to decode verify email request")
+			httpx.WriteError(w, http.StatusBadRequest, apperror.ErrBadRequest, apperror.ErrInvalidJSON)
+			return
+		}
+	}
+
+	if req.Token == "" && (req.Email == "" || req.Code == "") {
+		httpx.WriteError(w, http.StatusBadRequest, apperror.ErrBadRequest, "Token or email+code required")
+		return
+	}
+
+	if err := h.service.VerifyEmail(r.Context(), &req); err != nil {
+		if errors.Is(err, usecases.ErrEmailAlreadyVerified) {
+			httpx.WriteSuccess(w, http.StatusOK, "Email already verified", nil)
+			return
+		}
+		if errors.Is(err, usecases.ErrInvalidToken) {
+			httpx.WriteError(w, http.StatusBadRequest, apperror.ErrBadRequest, apperror.ErrInvalidToken)
+			return
+		}
+		h.logger.WithError(err).Warn("Email verification failed")
+		httpx.WriteError(w, http.StatusBadRequest, apperror.ErrBadRequest, apperror.ErrInvalidToken)
+		return
+	}
+
+	h.logger.Info("Email verified successfully")
+	httpx.WriteSuccess(w, http.StatusOK, "Email verified successfully", reqresp.VerifyEmailResponse{
+		Message: "Your email has been verified. You can now log in.",
+	})
+}
+
+// ResendVerification resends the verification email
+// @Summary Resend verification email
+// @Description Resends the email verification link/code
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param input body reqresp.ResendVerificationRequest true "Email address"
+// @Success 200 {object} reqresp.StandardResponse
+// @Failure 400 {object} reqresp.StandardResponse
+// @Router /api/auth/resend-verification [post]
+func (h *Handler) ResendVerification(w http.ResponseWriter, r *http.Request) {
+	var req reqresp.ResendVerificationRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.logger.WithError(err).Error("Failed to decode resend verification request")
+		httpx.WriteError(w, http.StatusBadRequest, apperror.ErrBadRequest, apperror.ErrInvalidJSON)
+		return
+	}
+
+	if err := validate.Struct(&req); err != nil {
+		httpx.WriteError(w, http.StatusBadRequest, apperror.ErrValidationFailed, apperror.ErrBadRequest)
+		return
+	}
+
+	if err := h.service.ResendVerification(r.Context(), req.Email); err != nil {
+		if errors.Is(err, usecases.ErrEmailAlreadyVerified) {
+			httpx.WriteSuccess(w, http.StatusOK, "Email already verified", nil)
+			return
+		}
+		// Don't reveal if email exists
+		h.logger.WithError(err).Warn("Resend verification failed")
+	}
+
+	// Always return success to not reveal if email exists
+	httpx.WriteSuccess(w, http.StatusOK, "If your email is registered, you will receive a verification email", nil)
+}
+
+// ForgotPassword initiates password reset
+// @Summary Request password reset
+// @Description Sends a password reset email to the user
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param input body reqresp.ForgotPasswordRequest true "Email address"
+// @Success 200 {object} reqresp.StandardResponse
+// @Failure 400 {object} reqresp.StandardResponse
+// @Router /api/auth/forgot-password [post]
+func (h *Handler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
+	var req reqresp.ForgotPasswordRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.logger.WithError(err).Error("Failed to decode forgot password request")
+		httpx.WriteError(w, http.StatusBadRequest, apperror.ErrBadRequest, apperror.ErrInvalidJSON)
+		return
+	}
+
+	if err := validate.Struct(&req); err != nil {
+		httpx.WriteError(w, http.StatusBadRequest, apperror.ErrValidationFailed, apperror.ErrBadRequest)
+		return
+	}
+
+	if err := h.service.ForgotPassword(r.Context(), req.Email); err != nil {
+		h.logger.WithError(err).Error("Forgot password failed")
+		// Don't reveal the error
+	}
+
+	// Always return success to not reveal if email exists
+	httpx.WriteSuccess(w, http.StatusOK, "If your email is registered, you will receive a password reset email", reqresp.ForgotPasswordResponse{
+		Message: "If your email is registered, you will receive a password reset email shortly.",
+	})
+}
+
+// ResetPassword resets the user's password
+// @Summary Reset password
+// @Description Resets the user's password using the token from email
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param input body reqresp.ResetPasswordRequest true "Reset token and new password"
+// @Success 200 {object} reqresp.StandardResponse
+// @Failure 400 {object} reqresp.StandardResponse
+// @Router /api/auth/reset-password [post]
+func (h *Handler) ResetPassword(w http.ResponseWriter, r *http.Request) {
+	var req reqresp.ResetPasswordRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.logger.WithError(err).Error("Failed to decode reset password request")
+		httpx.WriteError(w, http.StatusBadRequest, apperror.ErrBadRequest, apperror.ErrInvalidJSON)
+		return
+	}
+
+	if err := validate.Struct(&req); err != nil {
+		httpx.WriteError(w, http.StatusBadRequest, apperror.ErrValidationFailed, apperror.ErrBadRequest)
+		return
+	}
+
+	if err := h.service.ResetPassword(r.Context(), &req); err != nil {
+		if errors.Is(err, usecases.ErrInvalidToken) {
+			httpx.WriteError(w, http.StatusBadRequest, apperror.ErrBadRequest, apperror.ErrInvalidToken)
+			return
+		}
+		h.logger.WithError(err).Warn("Password reset failed")
+		httpx.WriteError(w, http.StatusBadRequest, apperror.ErrBadRequest, apperror.ErrInvalidToken)
+		return
+	}
+
+	h.logger.Info("Password reset successfully")
+	httpx.WriteSuccess(w, http.StatusOK, "Password reset successfully", reqresp.ResetPasswordResponse{
+		Message: "Your password has been reset. You can now log in with your new password.",
+	})
 }
 
 // Refresh handles token refresh

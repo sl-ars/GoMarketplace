@@ -9,6 +9,7 @@ import (
 	"go-app-marketplace/internal/app/start"
 	"go-app-marketplace/internal/deliveries/http"
 	"go-app-marketplace/internal/messagebus"
+	"go-app-marketplace/internal/middleware"
 	"go-app-marketplace/internal/redisdb"
 	"go-app-marketplace/internal/repositories"
 	"go-app-marketplace/internal/services"
@@ -46,6 +47,15 @@ func Run(configFiles ...string) {
 		appLogger.Info("Rate limiter initialized")
 	}
 
+	// Initialize trusted proxies for secure IP extraction
+	var trustedProxies *middleware.TrustedProxies
+	if len(cfg.RateLimit.TrustedProxies) > 0 {
+		trustedProxies = middleware.NewTrustedProxies(cfg.RateLimit.TrustedProxies)
+		appLogger.WithField("proxies", cfg.RateLimit.TrustedProxies).Info("Trusted proxies configured")
+	} else {
+		appLogger.Warn("No trusted proxies configured - X-Forwarded-For headers will be ignored")
+	}
+
 	// Build rate limit settings from config
 	rateLimitSettings := http.RateLimitSettings{
 		Enabled: cfg.RateLimit.Enabled,
@@ -61,6 +71,7 @@ func Run(configFiles ...string) {
 			Requests: cfg.RateLimit.StandardRequests,
 			Window:   time.Minute,
 		},
+		TrustedProxies: trustedProxies,
 	}
 
 	// --- RabbitMQ connection ---
@@ -80,12 +91,28 @@ func Run(configFiles ...string) {
 		appLogger.WithError(err).Fatal("failed to create order publisher")
 	}
 
+	// Initialize email publisher (for async email sending via RabbitMQ)
+	var emailPublisher *messagebus.EmailPublisher
+	if cfg.Email.Enabled {
+		emailPublisher, err = messagebus.NewEmailPublisher(rmqCh, "emails.exchange")
+		if err != nil {
+			appLogger.WithError(err).Fatal("failed to create email publisher")
+		}
+		appLogger.Info("Email publisher initialized (via RabbitMQ)")
+	} else {
+		appLogger.Warn("Email sending is disabled - set EMAIL_ENABLED=true to enable")
+	}
+
 	// Dependency injection
 	userRepo := repositories.NewUserPostgresRepo(conns.DB, appLogger)
 
-	// Auth service (handles registration, login, token refresh/verify)
+	// Auth service (handles registration, login, token refresh/verify, email verification, password reset)
 	authUC := usecases.NewAuthUseCase(userRepo)
-	authService := services.NewAuthService(authUC, cfg.JWTSecret, appLogger)
+	authService := services.NewAuthService(authUC, emailPublisher, services.AuthServiceConfig{
+		JWTSecret:       cfg.JWTSecret,
+		BaseURL:         cfg.Auth.BaseURL,
+		RequireVerified: cfg.Auth.RequireEmailVerified,
+	}, appLogger)
 
 	// User service (handles user profile operations)
 	userUC := usecases.NewUserUseCase(userRepo)

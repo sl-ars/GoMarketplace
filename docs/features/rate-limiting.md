@@ -82,6 +82,10 @@ RATELIMIT_PUBLIC_REQUESTS=60
 
 # Requests per minute for authenticated endpoints
 RATELIMIT_STANDARD_REQUESTS=120
+
+# Trusted proxy IPs/CIDRs (comma-separated)
+# REQUIRED for X-Forwarded-For to be trusted!
+RATELIMIT_TRUSTED_PROXIES=10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,127.0.0.1
 ```
 
 ### Preset Configurations
@@ -151,10 +155,67 @@ Key: ratelimit:user:{user_id}:{endpoint}
 Example: ratelimit:user:12345:/api/orders
 ```
 
-### IP Detection Priority
-1. `X-Forwarded-For` header (first IP)
-2. `X-Real-IP` header
-3. `RemoteAddr`
+### Secure IP Detection
+
+**IMPORTANT**: IP detection is security-critical. Naive implementations can be bypassed!
+
+#### The Problem
+
+Attackers can set `X-Forwarded-For: fake-ip` headers to bypass rate limiting:
+
+```bash
+# Attacker bypasses rate limit by faking different IPs
+curl -H "X-Forwarded-For: 1.1.1.1" https://api.example.com/login
+curl -H "X-Forwarded-For: 2.2.2.2" https://api.example.com/login
+# ... infinite requests with different fake IPs
+```
+
+#### The Solution
+
+We ONLY trust `X-Forwarded-For` / `X-Real-IP` headers if:
+1. The direct connection (`RemoteAddr`) comes from a **trusted proxy**
+2. The trusted proxy is explicitly configured via `RATELIMIT_TRUSTED_PROXIES`
+
+```
+Direct Request (no proxy):
+  RemoteAddr: 203.0.113.50 → Use this IP (cannot be spoofed)
+
+Request via Trusted Proxy:
+  RemoteAddr: 10.0.0.1 (trusted)
+  X-Forwarded-For: 203.0.113.50, 10.0.0.1
+  → Walk backwards, find first untrusted IP: 203.0.113.50
+
+Request via Untrusted Proxy (attacker):
+  RemoteAddr: 203.0.113.50 (NOT trusted)
+  X-Forwarded-For: fake-ip (spoofed)
+  → Ignore headers, use RemoteAddr: 203.0.113.50
+```
+
+#### Configuration Examples
+
+```env
+# Docker/Kubernetes internal networks
+RATELIMIT_TRUSTED_PROXIES=10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
+
+# Single nginx proxy
+RATELIMIT_TRUSTED_PROXIES=192.168.1.100
+
+# AWS ALB IP ranges (check AWS docs for current ranges)
+RATELIMIT_TRUSTED_PROXIES=10.0.0.0/8
+
+# Cloudflare (use their published IP ranges)
+RATELIMIT_TRUSTED_PROXIES=173.245.48.0/20,103.21.244.0/22,...
+```
+
+#### No Trusted Proxies = Maximum Security
+
+If `RATELIMIT_TRUSTED_PROXIES` is empty, headers are **never trusted**:
+
+```
+WARN: No trusted proxies configured - X-Forwarded-For headers will be ignored
+```
+
+This is the safest default for applications directly exposed to the internet.
 
 ## Usage Examples
 
@@ -273,10 +334,26 @@ redis-cli DEL "marketplace:ratelimit:ip:192.168.1.1:global"
 
 ## Security Considerations
 
-1. **IP Spoofing**: In production, configure your reverse proxy to set trusted headers
-2. **Distributed Attacks**: Redis-based limiting works across all application instances
-3. **Bypass Prevention**: Rate limiting is applied before authentication middleware
-4. **Fail Open**: On Redis errors, requests are allowed (logged for monitoring)
+1. **IP Spoofing Prevention**: Headers are ONLY trusted from configured proxies
+   - Set `RATELIMIT_TRUSTED_PROXIES` to your proxy IPs/CIDRs
+   - Without this, `X-Forwarded-For` is ignored (safest default)
+   
+2. **Trusted Proxy Configuration**:
+   ```env
+   # Common setups:
+   # Docker: RATELIMIT_TRUSTED_PROXIES=172.16.0.0/12
+   # Kubernetes: RATELIMIT_TRUSTED_PROXIES=10.0.0.0/8
+   # AWS ALB: Use AWS published IP ranges
+   # Cloudflare: Use Cloudflare published IP ranges
+   ```
+
+3. **Distributed Attacks**: Redis-based limiting works across all application instances
+
+4. **Bypass Prevention**: Rate limiting is applied before authentication middleware
+
+5. **Fail Open**: On Redis errors, requests are allowed (logged for monitoring)
+
+6. **Never Trust User Input**: The rightmost non-proxy IP in X-Forwarded-For is used
 
 ## Best Practices
 

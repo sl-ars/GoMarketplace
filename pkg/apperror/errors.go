@@ -16,12 +16,15 @@ const (
 	ErrTooManyRequests  = "Rate limit exceeded. Please slow down and try again later."
 
 	// Auth errors
-	ErrInvalidCredentials = "Invalid email or password."
-	ErrInvalidToken       = "Invalid or expired token."
-	ErrMissingToken       = "Authentication token is required."
-	ErrEmailTaken         = "This email is already registered."
-	ErrUsernameTaken      = "This username is already taken."
-	ErrUserNotFound       = "User not found."
+	ErrInvalidCredentials   = "Invalid email or password."
+	ErrInvalidToken         = "Invalid or expired token."
+	ErrMissingToken         = "Authentication token is required."
+	ErrEmailTaken           = "This email is already registered."
+	ErrUsernameTaken        = "This username is already taken."
+	ErrUserNotFound         = "User not found."
+	ErrEmailNotVerified     = "Please verify your email address before logging in."
+	ErrEmailAlreadyVerified = "Email is already verified."
+	ErrPasswordResetFailed  = "Password reset failed. Please try again."
 
 	// Cart errors
 	ErrCartEmpty        = "Your cart is empty."

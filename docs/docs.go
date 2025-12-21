@@ -53,6 +53,46 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/auth/forgot-password": {
+            "post": {
+                "description": "Sends a password reset email to the user",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Request password reset",
+                "parameters": [
+                    {
+                        "description": "Email address",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.ForgotPasswordRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/auth/login": {
             "post": {
                 "description": "Authenticates user and returns JWT tokens",
@@ -92,6 +132,12 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Email not verified",
                         "schema": {
                             "$ref": "#/definitions/reqresp.StandardResponse"
                         }
@@ -141,7 +187,7 @@ const docTemplate = `{
         },
         "/api/auth/register": {
             "post": {
-                "description": "Registers a new user with username, email, and password",
+                "description": "Registers a new user with username, email, and password. Sends verification email.",
                 "consumes": [
                     "application/json"
                 ],
@@ -185,6 +231,86 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/auth/resend-verification": {
+            "post": {
+                "description": "Resends the email verification link/code",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Resend verification email",
+                "parameters": [
+                    {
+                        "description": "Email address",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.ResendVerificationRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/auth/reset-password": {
+            "post": {
+                "description": "Resets the user's password using the token from email",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Reset password",
+                "parameters": [
+                    {
+                        "description": "Reset token and new password",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.ResetPasswordRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/auth/verify": {
             "get": {
                 "security": [
@@ -209,6 +335,46 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/auth/verify-email": {
+            "post": {
+                "description": "Verifies user's email using token from email link or email + code",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Verify email address",
+                "parameters": [
+                    {
+                        "description": "Verification token or email + code",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.VerifyEmailRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/reqresp.StandardResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/reqresp.StandardResponse"
                         }
@@ -1363,6 +1529,17 @@ const docTemplate = `{
                 }
             }
         },
+        "reqresp.ForgotPasswordRequest": {
+            "type": "object",
+            "required": [
+                "email"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string"
+                }
+            }
+        },
         "reqresp.LoginRequest": {
             "type": "object",
             "required": [
@@ -1614,6 +1791,33 @@ const docTemplate = `{
                 }
             }
         },
+        "reqresp.ResendVerificationRequest": {
+            "type": "object",
+            "required": [
+                "email"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string"
+                }
+            }
+        },
+        "reqresp.ResetPasswordRequest": {
+            "type": "object",
+            "required": [
+                "new_password",
+                "token"
+            ],
+            "properties": {
+                "new_password": {
+                    "type": "string",
+                    "minLength": 6
+                },
+                "token": {
+                    "type": "string"
+                }
+            }
+        },
         "reqresp.StandardResponse": {
             "type": "object",
             "properties": {
@@ -1652,6 +1856,23 @@ const docTemplate = `{
                         "processing",
                         "delivered"
                     ]
+                }
+            }
+        },
+        "reqresp.VerifyEmailRequest": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "description": "6-digit code",
+                    "type": "string"
+                },
+                "email": {
+                    "description": "Email + code verification",
+                    "type": "string"
+                },
+                "token": {
+                    "description": "Token from email link",
+                    "type": "string"
                 }
             }
         }

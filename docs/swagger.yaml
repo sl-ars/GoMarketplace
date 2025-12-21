@@ -31,6 +31,13 @@ definitions:
         type: string
         x-order: "2"
     type: object
+  reqresp.ForgotPasswordRequest:
+    properties:
+      email:
+        type: string
+    required:
+    - email
+    type: object
   reqresp.LoginRequest:
     properties:
       email:
@@ -213,6 +220,24 @@ definitions:
     - password
     - username
     type: object
+  reqresp.ResendVerificationRequest:
+    properties:
+      email:
+        type: string
+    required:
+    - email
+    type: object
+  reqresp.ResetPasswordRequest:
+    properties:
+      new_password:
+        minLength: 6
+        type: string
+      token:
+        type: string
+    required:
+    - new_password
+    - token
+    type: object
   reqresp.StandardResponse:
     properties:
       data:
@@ -239,6 +264,18 @@ definitions:
         type: string
     required:
     - status
+    type: object
+  reqresp.VerifyEmailRequest:
+    properties:
+      code:
+        description: 6-digit code
+        type: string
+      email:
+        description: Email + code verification
+        type: string
+      token:
+        description: Token from email link
+        type: string
     type: object
 info:
   contact: {}
@@ -269,6 +306,32 @@ paths:
       summary: Create product
       tags:
       - products
+  /api/auth/forgot-password:
+    post:
+      consumes:
+      - application/json
+      description: Sends a password reset email to the user
+      parameters:
+      - description: Email address
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/reqresp.ForgotPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+      summary: Request password reset
+      tags:
+      - auth
   /api/auth/login:
     post:
       consumes:
@@ -294,6 +357,10 @@ paths:
             $ref: '#/definitions/reqresp.StandardResponse'
         "401":
           description: Unauthorized
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+        "403":
+          description: Email not verified
           schema:
             $ref: '#/definitions/reqresp.StandardResponse'
       summary: Login user
@@ -329,7 +396,8 @@ paths:
     post:
       consumes:
       - application/json
-      description: Registers a new user with username, email, and password
+      description: Registers a new user with username, email, and password. Sends
+        verification email.
       parameters:
       - description: User registration input
         in: body
@@ -355,6 +423,58 @@ paths:
       summary: Register new user
       tags:
       - auth
+  /api/auth/resend-verification:
+    post:
+      consumes:
+      - application/json
+      description: Resends the email verification link/code
+      parameters:
+      - description: Email address
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/reqresp.ResendVerificationRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+      summary: Resend verification email
+      tags:
+      - auth
+  /api/auth/reset-password:
+    post:
+      consumes:
+      - application/json
+      description: Resets the user's password using the token from email
+      parameters:
+      - description: Reset token and new password
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/reqresp.ResetPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+      summary: Reset password
+      tags:
+      - auth
   /api/auth/verify:
     get:
       description: Verifies the JWT token in Authorization header
@@ -372,6 +492,32 @@ paths:
       security:
       - BearerAuth: []
       summary: Verify JWT access token
+      tags:
+      - auth
+  /api/auth/verify-email:
+    post:
+      consumes:
+      - application/json
+      description: Verifies user's email using token from email link or email + code
+      parameters:
+      - description: Verification token or email + code
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/reqresp.VerifyEmailRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/reqresp.StandardResponse'
+      summary: Verify email address
       tags:
       - auth
   /api/cart:
